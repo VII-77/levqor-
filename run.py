@@ -18,6 +18,10 @@ def add_headers(r):
     r.headers["Permissions-Policy"] = "geolocation=(), microphone=()"
     return r
 
+@app.get("/")
+def root():
+    return jsonify({"ok": True, "service": "levqor-backend", "version": "1.0.0"}), 200
+
 @app.get("/health")
 def health():
     return jsonify({"ok": True, "ts": int(time())}), 200

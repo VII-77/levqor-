@@ -24,7 +24,7 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 
 ### Backend Structure
 - `run.py` - Main Flask application with API endpoints
-- `requirements.txt` - Python dependencies (Flask 3.0.0, jsonschema 4.22.0, requests 2.32.5)
+- `requirements.txt` - Python dependencies (Flask 3.0.0, jsonschema 4.22.0, requests 2.32.5, gunicorn 23.0.0)
 - `.env.example` - Environment variable template
 
 ### Public Pages
@@ -51,7 +51,10 @@ On success, you'll see: `🟢 COCKPIT GREEN — Levqor backend validated`
 
 ### API Endpoints
 
-#### Health & Metrics
+#### Root & Health
+- `GET /` - Root endpoint for deployment health checks
+  - Returns: `{"ok": true, "service": "levqor-backend", "version": "1.0.0"}`
+
 - `GET /health` - Health check endpoint
   - Returns: `{"ok": true, "ts": <timestamp>}`
   
@@ -77,9 +80,11 @@ On success, you'll see: `🟢 COCKPIT GREEN — Levqor backend validated`
 - JSON schema validation for all API requests
 
 ### Current State
-- Server running on port 5000
+- Production server (Gunicorn) running on port 5000
 - In-memory job store (JOBS dictionary)
 - All endpoints operational and tested
+- Deployment configured for Autoscale
+- Root endpoint (/) available for health checks
 - Ready for production database integration
 
 ## Next Phase
