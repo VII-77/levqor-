@@ -33,4 +33,4 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "30", "--bind", "0.0.0.0:5000", "--reuse-port", "--log-level", "info", "run:app"]
-build = ["sh", "-c", "2025-11-05.1"]
+build = ["sh", "-c", "BUILD_ID=2025-11-05.1"]
