@@ -1,0 +1,95 @@
+╔═══════════════════════════════════════════════════════════╗
+║          WHERE TO ADD DNS CONFIGURATION                   ║
+╚═══════════════════════════════════════════════════════════╝
+
+DNS is configured at your DOMAIN REGISTRAR
+(where you bought levqor.ai)
+
+STEP 1: FIND YOUR DOMAIN REGISTRAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Where did you buy levqor.ai?
+Common providers:
+  - Namecheap
+  - GoDaddy
+  - Cloudflare
+  - Google Domains
+  - Porkbun
+  - Hover
+
+
+STEP 2: LOG IN TO YOUR DOMAIN PROVIDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Go to your domain provider's website and log in.
+
+
+STEP 3: FIND DNS SETTINGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Look for one of these sections:
+  - "DNS Settings"
+  - "DNS Management"
+  - "DNS Records"
+  - "Advanced DNS"
+  - "Manage DNS"
+
+Click on it for levqor.ai domain.
+
+
+STEP 4: ADD CNAME RECORD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Click "Add Record" or "Add New Record"
+
+Fill in:
+  Type:  CNAME
+  Host:  api
+  Value: levqor-backend.replit.app
+  TTL:   Automatic (or 3600)
+
+Click "Save" or "Add Record"
+
+
+COMMON PROVIDERS - WHERE TO FIND DNS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NAMECHEAP:
+  Dashboard → Domain List → Manage → Advanced DNS
+
+GODADDY:
+  My Products → Domains → DNS → Manage DNS
+
+CLOUDFLARE:
+  Domain → DNS → Records → Add record
+
+GOOGLE DOMAINS:
+  My domains → levqor.ai → DNS
+
+PORKBUN:
+  Domain Management → DNS
+
+
+WHAT YOU'RE ADDING:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Type:  CNAME
+Name:  api (or api.levqor.ai - depends on provider)
+Value: levqor-backend.replit.app
+TTL:   Auto
+
+
+WAIT TIME:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After saving, wait 15-30 minutes for DNS to propagate.
+
+Check status: https://dnschecker.org
+  - Enter: api.levqor.ai
+  - Should show: levqor-backend.replit.app
+
+
+NEED HELP?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tell me your domain provider and I'll give you specific instructions!
