@@ -1,0 +1,145 @@
+# LEVQOR BACKEND — BEGINNER DEPLOYMENT GUIDE
+
+**Build:** 2025-11-05.1  
+**Difficulty:** Beginner-friendly (step-by-step)
+
+---
+
+## STEP 1 — DEPLOY BACKEND ON REPLIT
+
+1. Open your Replit project "levqor-backend"
+2. Go to **Deployments** → **Create or Configure Deployment**
+3. Set **Start Command**:
+   ```bash
+   gunicorn --workers 2 --threads 4 --timeout 30 --bind 0.0.0.0:$PORT --reuse-port --log-level info run:app
+   ```
+4. Set **Health Check Path**: `/`
+5. Add **Environment Variables**:
+   ```bash
+   API_KEYS=<your_key_here>
+   BUILD_ID=2025-11-05.1
+   ```
+   _(Replace `<your_key_here>` with your real API key)_
+6. Click **"Publish"** and wait until the green check appears
+
+---
+
+## STEP 2 — CONNECT YOUR DOMAIN
+
+Go to your DNS provider and add:
+```
+CNAME  api   →   <your-repl-name>.repl.co
+```
+Save and wait 15–30 minutes for DNS propagation.
+
+---
+
+## STEP 3 — VERIFY BACKEND LIVE
+
+Replace `<your-repl-name>` or use `api.levqor.ai` once DNS is ready:
+
+```bash
+curl -s https://<your-repl-name>.repl.co/ | jq
+curl -s https://<your-repl-name>.repl.co/public/metrics | jq
+```
+
+**Expected:** JSON responses with `"ok": true` and uptime metrics.
+
+---
+
+## STEP 4 — SUBMIT TEST JOB
+
+```bash
+KEY=<your_key_here>
+jid=$(curl -s -X POST https://api.levqor.ai/api/v1/intake \
+  -H "X-Api-Key: $KEY" -H "Content-Type: application/json" \
+  -d '{"workflow":"demo","payload":{}}' | jq -r .job_id)
+curl -s https://api.levqor.ai/api/v1/status/$jid | jq
+```
+
+---
+
+## STEP 5 — DEPLOY FRONTEND ON VERCEL
+
+1. Push your "frontend" folder to GitHub
+2. Go to **vercel.com** → **New Project** → **Import from GitHub**
+3. Add **Environment Variable**:
+   ```bash
+   VITE_API_URL=https://api.levqor.ai
+   ```
+4. Click **Deploy**
+5. Open your Vercel link (should load Levqor landing page)
+
+---
+
+## STEP 6 — POINT MAIN DOMAIN
+
+Add these DNS records:
+```
+A     levqor.ai  →  76.76.21.21
+CNAME www        →  cname.vercel-dns.com
+```
+Wait until Vercel verifies the domain.
+
+---
+
+## STEP 7 — MONITORING & BACKUPS
+
+**Add Free Monitor:**
+- Go to uptimerobot.com
+- Create new HTTPS monitor → `https://api.levqor.ai/health`
+
+**Run First Backup** (in Replit shell):
+```bash
+./scripts/backup_db.sh
+ls backups/
+```
+
+---
+
+## STEP 8 — CHECK EVERYTHING WORKS
+
+1. Visit `https://api.levqor.ai/` → should return JSON with service/version
+2. Visit `https://api.levqor.ai/public/metrics` → shows metrics
+3. Submit and check a test job (as above)
+4. Visit frontend → status card updates
+5. Confirm UptimeRobot shows "UP" and green
+
+---
+
+## STEP 9 — AFTER LAUNCH
+
+- Keep Stripe in TEST mode until ready
+- Add ICO number to Privacy Policy when registered
+- Rotate API keys monthly:
+  - Add `API_KEYS_NEXT=<new_key>`, redeploy
+  - Update clients, then remove old key
+- Run backups daily: `./scripts/backup_db.sh`
+
+---
+
+## STEP 10 — QUICK SMOKE TEST (FULL AUTOMATION)
+
+```bash
+KEY=<your_key_here>
+set -e
+curl -sI https://api.levqor.ai/ | head -n1
+curl -sI https://api.levqor.ai/public/metrics | grep -E 'Strict-Transport|Content-Security-Policy|X-Frame-Options'
+jid=$(curl -s -X POST https://api.levqor.ai/api/v1/intake \
+  -H "X-Api-Key: $KEY" -H "Content-Type: application/json" \
+  -d '{"workflow":"demo","payload":{}}' | jq -r .job_id)
+curl -s https://api.levqor.ai/api/v1/status/$jid | jq
+echo "🟢 COCKPIT GREEN — Levqor backend live and operational."
+```
+
+---
+
+## 🎉 YOU'RE LIVE!
+
+Once all steps pass, your Levqor backend is production-ready and serving traffic.
+
+**Support Documentation:**
+- `LAUNCH_INSTRUCTIONS.md` - Detailed launch steps
+- `DEPLOYMENT_RUNBOOK.md` - 24-hour monitoring guide
+- `PRODUCTION_CHECKLIST.md` - All verification items
+- `API_KEY_ROTATION.md` - Key rotation procedure
