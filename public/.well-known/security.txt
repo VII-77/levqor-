@@ -1,0 +1,4 @@
+Contact: mailto:security@levqor.ai
+Expires: 2026-11-05T00:00:00.000Z
+Policy: https://levqor.ai/legal/terms
+Preferred-Languages: en

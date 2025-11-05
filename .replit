@@ -23,17 +23,13 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "gunicorn --workers 2 --threads 4 --timeout 30 --bind 0.0.0.0:5000 --reuse-port run:app"
+args = "gunicorn --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-4} --timeout ${GUNICORN_TIMEOUT:-30} --graceful-timeout 20 --bind 0.0.0.0:5000 --reuse-port --log-level info run:app"
 waitForPort = 5000
 
 [[ports]]
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 33883
-externalPort = 3000
-
 [deployment]
 deploymentTarget = "autoscale"
-run = ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "30", "--bind", "0.0.0.0:$PORT", "--reuse-port", "run:app"]
+run = ["bash", "-c", "gunicorn --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-4} --timeout ${GUNICORN_TIMEOUT:-30} --graceful-timeout 20 --bind 0.0.0.0:$PORT --reuse-port --log-level info run:app"]

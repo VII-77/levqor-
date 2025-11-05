@@ -1,0 +1,186 @@
+You’re 95% hardened. Do these final deltas and call it production-grade.
+
+Final hardening deltas
+
+1) Security headers complete
+
+Add HSTS, CSP, COOP/COEP. In run.py:
+
+@app.after_request
+def add_headers(r):
+    # CORS
+    r.headers["Access-Control-Allow-Origin"] = "https://levqor.ai"
+    r.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+    r.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Api-Key"
+    # Security
+    r.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    r.headers["Content-Security-Policy"] = "default-src 'none'; connect-src https://levqor.ai https://api.levqor.ai; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    r.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    r.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+    r.headers["X-Content-Type-Options"] = "nosniff"
+    r.headers["X-Frame-Options"] = "DENY"
+    r.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    r.headers["Permissions-Policy"] = "geolocation=(), microphone=()"
+    return r
+
+2) Request size limits
+
+Top of run.py:
+
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_CONTENT_LENGTH", 512 * 1024))  # 512KB
+
+Reject oversize bodies at the Flask layer.
+
+3) Rate-limit response headers
+
+Augment your throttle() return to advertise limits:
+
+if len(dq) >= RATE_BURST or len(_ALL_HITS) >= RATE_GLOBAL:
+    resp = jsonify({"error":"rate_limited"})
+    resp.status_code = 429
+    resp.headers["Retry-After"] = "60"
+    resp.headers["X-RateLimit-Limit"] = str(RATE_BURST)
+    resp.headers["X-RateLimit-Remaining"] = "0"
+    resp.headers["X-RateLimit-Reset"] = str(int(now)+WINDOW)
+    return resp
+
+4) Validate URLs and field lengths
+
+Harden INTAKE_SCHEMA:
+
+INTAKE_SCHEMA = {
+  "type":"object",
+  "properties":{
+    "workflow":{"type":"string","minLength":1,"maxLength":128},
+    "payload":{"type":"object"},
+    "callback_url":{"type":"string","format":"uri","maxLength":1024},
+    "priority":{"type":"string","enum":["low","normal","high"]}
+  },
+  "required":["workflow","payload"],
+  "additionalProperties": False
+}
+
+And before enqueue, optionally sanitize payload size:
+
+import json
+if len(json.dumps(data["payload"])) > 200*1024:  # 200KB
+    return bad_request("payload too large")
+
+5) Gunicorn tuning
+
+Deployment start command:
+
+gunicorn --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-4} \
+  --timeout ${GUNICORN_TIMEOUT:-30} --graceful-timeout 20 \
+  --bind 0.0.0.0:$PORT --reuse-port --log-level info run:app
+
+6) Expose ops version + build
+
+Add:
+
+BUILD = os.environ.get("BUILD_ID","dev")
+VERSION = "1.0.0"
+@app.get("/")
+def root():
+    return {"ok": True, "service": "levqor-backend", "version": VERSION, "build": BUILD}, 200
+
+7) Well-known files
+
+Create:
+
+public/.well-known/security.txt
+
+
+Contact: mailto:security@levqor.ai
+Expires: 2026-11-05
+Policy: https://levqor.ai/legal/terms
+Preferred-Languages: en
+
+public/robots.txt
+
+
+User-agent: *
+Disallow:
+Sitemap: https://levqor.ai/sitemap.xml
+
+8) API key rotation procedure
+
+Environment:
+
+API_KEYS=levqor_dev_abc123,levqor_dev_xyz789
+API_KEYS_NEXT=levqor_new_000111
+
+Change require_key() to accept both sets for 24h, then drop the old. Document in README.
+
+9) SQLite durability + backup schedule
+
+Keep WAL. Add daily backup cron via external ping or Replit job to run:
+
+
+./scripts/backup_db.sh
+
+Verify backup restore: copy file to a temp Repl and run PRAGMA integrity_check;.
+
+
+10) Minimal OpenAPI doc (optional but useful)
+
+Add /public/openapi.json:
+
+OPENAPI = {
+ "openapi":"3.0.0",
+ "info":{"title":"Levqor API","version":VERSION},
+ "paths":{
+   "/api/v1/intake":{"post":{"summary":"Submit job","responses":{"202":{"description":"Queued"}}}},
+   "/api/v1/status/{job_id}":{"get":{"summary":"Get status","responses":{"200":{"description":"OK"}}}}
+ }
+}
+@app.get("/public/openapi.json")
+def openapi():
+    return jsonify(OPENAPI)
+
+11) Tests to run now
+
+Replace <host>.
+
+# Health and root
+curl -sI https://<host>/ | head -n1
+curl -s  https://<host>/ | jq
+
+# Headers check
+curl -sI https://<host>/public/metrics | grep -E 'Strict-Transport|Content-Security-Policy|X-Frame-Options'
+
+# Size limit
+python - <<'PY'
+import requests,json,os
+u="https://<host>/api/v1/intake"
+d={"workflow":"w","payload":{"x":"a"*300000}}
+print(requests.post(u,headers={"X-Api-Key":"levqor_dev_abc123"},json=d,timeout=10).status_code)
+PY
+
+# Rate limit
+for i in $(seq 1 25); do
+  curl -s -o /dev/null -w "%{http_code} " -H "X-Api-Key: levqor_dev_abc123" \
+    -H "Content-Type: application/json" \
+    -d '{"workflow":"w","payload":{}}' https://<host>/api/v1/intake
+done; echo
+
+12) Go/No-Go diff
+
+[ ] HSTS, CSP, COOP/COEP present.
+
+[ ] MAX_CONTENT_LENGTH active.
+
+[ ] Rate-limit headers + Retry-After.
+
+[ ] URL + length validation enforced.
+
+[ ] Gunicorn using $PORT with timeouts.
+
+[ ] /.well-known/security.txt reachable.
+
+[ ] Backups run and restore tested.
+
+[ ] API key rotation doc added.
+
+
+When all pass, ship.

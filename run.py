@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from jsonschema import validate, ValidationError
+from jsonschema import validate, ValidationError, FormatChecker
 from time import time
 from uuid import uuid4
 from collections import defaultdict, deque
@@ -16,10 +16,16 @@ app = Flask(__name__,
     static_folder='public',
     static_url_path='/public')
 
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_CONTENT_LENGTH", 512 * 1024))
+
+BUILD = os.environ.get("BUILD_ID", "dev")
+VERSION = "1.0.0"
+
 DB_PATH = os.environ.get("SQLITE_PATH", os.path.join(os.getcwd(), "levqor.db"))
 _db_connection = None
 
 API_KEYS = set((os.environ.get("API_KEYS") or "").split(",")) - {""}
+API_KEYS_NEXT = set((os.environ.get("API_KEYS_NEXT") or "").split(",")) - {""}
 
 RATE_BURST = int(os.environ.get("RATE_BURST", 20))
 RATE_GLOBAL = int(os.environ.get("RATE_GLOBAL", 200))
@@ -55,7 +61,7 @@ def get_db():
 
 def require_key():
     key = request.headers.get("X-Api-Key")
-    if not API_KEYS or key in API_KEYS:
+    if not API_KEYS or key in API_KEYS or key in API_KEYS_NEXT:
         return None
     return jsonify({"error": "forbidden"}), 403
 
@@ -69,14 +75,18 @@ def throttle():
     while dq and now - dq[0] > WINDOW:
         dq.popleft()
     
-    if len(_ALL_HITS) >= RATE_GLOBAL:
-        return True
-    if len(dq) >= RATE_BURST:
-        return True
+    if len(dq) >= RATE_BURST or len(_ALL_HITS) >= RATE_GLOBAL:
+        resp = jsonify({"error": "rate_limited"})
+        resp.status_code = 429
+        resp.headers["Retry-After"] = "60"
+        resp.headers["X-RateLimit-Limit"] = str(RATE_BURST)
+        resp.headers["X-RateLimit-Remaining"] = "0"
+        resp.headers["X-RateLimit-Reset"] = str(int(now) + WINDOW)
+        return resp
     
     dq.append(now)
     _ALL_HITS.append(now)
-    return False
+    return None
 
 @app.before_request
 def _log_in():
@@ -89,6 +99,10 @@ def add_headers(r):
     r.headers["Access-Control-Allow-Origin"] = "https://levqor.ai"
     r.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS,PATCH"
     r.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Api-Key"
+    r.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    r.headers["Content-Security-Policy"] = "default-src 'none'; connect-src https://levqor.ai https://api.levqor.ai; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    r.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    r.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
     r.headers["X-Content-Type-Options"] = "nosniff"
     r.headers["X-Frame-Options"] = "DENY"
     r.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -102,7 +116,7 @@ def on_error(e):
 
 @app.get("/")
 def root():
-    return jsonify({"ok": True, "service": "levqor-backend", "version": "1.0.0"}), 200
+    return jsonify({"ok": True, "service": "levqor-backend", "version": VERSION, "build": BUILD}), 200
 
 @app.get("/health")
 def health():
@@ -122,10 +136,10 @@ JOBS = {}
 INTAKE_SCHEMA = {
     "type": "object",
     "properties": {
-        "workflow": {"type": "string", "minLength": 1},
+        "workflow": {"type": "string", "minLength": 1, "maxLength": 128},
         "payload": {"type": "object"},
-        "callback_url": {"type": "string", "minLength": 1},
-        "priority": {"type": "string", "enum": ["low","normal","high"]},
+        "callback_url": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "priority": {"type": "string", "enum": ["low", "normal", "high"]},
     },
     "required": ["workflow", "payload"],
     "additionalProperties": False,
@@ -198,16 +212,25 @@ def intake():
     guard = require_key()
     if guard:
         return guard
-    if throttle():
-        return jsonify({"error": "rate_limited"}), 429
+    rate_check = throttle()
+    if rate_check:
+        return rate_check
     
     if not request.is_json:
         return bad_request("Content-Type must be application/json")
     data = request.get_json(silent=True)
     try:
-        validate(instance=data, schema=INTAKE_SCHEMA)
+        validate(instance=data, schema=INTAKE_SCHEMA, format_checker=FormatChecker())
     except ValidationError as e:
         return bad_request("Invalid request body", e.message)
+    
+    if len(json.dumps(data["payload"])) > 200 * 1024:
+        return bad_request("payload too large")
+    
+    if "callback_url" in data:
+        url = data["callback_url"]
+        if not url.startswith(("http://", "https://")):
+            return bad_request("callback_url must be a valid HTTP(S) URL")
 
     job_id = uuid4().hex
     JOBS[job_id] = {
@@ -244,8 +267,9 @@ def dev_complete(job_id):
     guard = require_key()
     if guard:
         return guard
-    if throttle():
-        return jsonify({"error": "rate_limited"}), 429
+    rate_check = throttle()
+    if rate_check:
+        return rate_check
     
     job = JOBS.get(job_id)
     if not job:
@@ -260,14 +284,15 @@ def users_upsert():
     guard = require_key()
     if guard:
         return guard
-    if throttle():
-        return jsonify({"error": "rate_limited"}), 429
+    rate_check = throttle()
+    if rate_check:
+        return rate_check
     
     if not request.is_json:
         return bad_request("Content-Type must be application/json")
     body = request.get_json(silent=True) or {}
     try:
-        validate(instance=body, schema=USER_UPSERT_SCHEMA)
+        validate(instance=body, schema=USER_UPSERT_SCHEMA, format_checker=FormatChecker())
     except ValidationError as e:
         return bad_request("Invalid user payload", e.message)
 
@@ -300,14 +325,15 @@ def users_patch(user_id):
     guard = require_key()
     if guard:
         return guard
-    if throttle():
-        return jsonify({"error": "rate_limited"}), 429
+    rate_check = throttle()
+    if rate_check:
+        return rate_check
     
     if not request.is_json:
         return bad_request("Content-Type must be application/json")
     body = request.get_json(silent=True) or {}
     try:
-        validate(instance=body, schema=USER_PATCH_SCHEMA)
+        validate(instance=body, schema=USER_PATCH_SCHEMA, format_checker=FormatChecker())
     except ValidationError as e:
         return bad_request("Invalid patch payload", e.message)
 
@@ -350,6 +376,22 @@ def ops_health():
     if guard:
         return guard
     return jsonify({"ok": True, "ts": int(time())}), 200
+
+OPENAPI = {
+    "openapi": "3.0.0",
+    "info": {"title": "Levqor API", "version": VERSION},
+    "paths": {
+        "/api/v1/intake": {"post": {"summary": "Submit job", "responses": {"202": {"description": "Queued"}}}},
+        "/api/v1/status/{job_id}": {"get": {"summary": "Get status", "responses": {"200": {"description": "OK"}}}},
+        "/api/v1/users/upsert": {"post": {"summary": "Create or update user", "responses": {"201": {"description": "Created"}}}},
+        "/api/v1/users/{user_id}": {"get": {"summary": "Get user by ID", "responses": {"200": {"description": "OK"}}}},
+        "/api/v1/users": {"get": {"summary": "Lookup user by email", "responses": {"200": {"description": "OK"}}}}
+    }
+}
+
+@app.get("/public/openapi.json")
+def openapi():
+    return jsonify(OPENAPI)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
