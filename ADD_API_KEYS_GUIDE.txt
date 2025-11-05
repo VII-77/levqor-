@@ -1,0 +1,80 @@
+╔═══════════════════════════════════════════════════════════╗
+║         HOW TO ADD API KEYS - SIMPLE GUIDE                ║
+╚═══════════════════════════════════════════════════════════╝
+
+STEP 1: CREATE YOUR API KEYS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You need to create secure API keys. Here are 3 options:
+
+OPTION A: Use this command to generate 2 random keys
+-------------------------------------------------
+Run this in your terminal:
+
+python3 -c "import secrets; print('Key 1:', 'levqor_' + secrets.token_urlsafe(32)); print('Key 2:', 'levqor_' + secrets.token_urlsafe(32))"
+
+Copy the output - these are your API keys!
+
+
+OPTION B: Create your own simple keys (for testing)
+-------------------------------------------------
+Make up 2 random strings, like:
+  levqor_prod_abc123xyz789
+  levqor_prod_def456uvw012
+
+Make them unique and hard to guess!
+
+
+OPTION C: Use a password generator
+-------------------------------------------------
+Use any password generator to create 2 long random strings.
+Add "levqor_" at the start of each one.
+
+
+STEP 2: ADD KEYS TO REPLIT DEPLOYMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. In Replit, click "Deployments" (rocket icon 🚀) on left
+
+2. Click "Create Deployment" (or gear icon if exists)
+
+3. Find "Environment Variables" or "Secrets" section
+
+4. Click "Add Variable" and enter:
+
+   Key:   API_KEYS
+   Value: levqor_prod_abc123xyz789,levqor_prod_def456uvw012
+   
+   ⚠️ IMPORTANT: Replace with YOUR keys from Step 1!
+   ⚠️ Use comma between keys, NO SPACES
+
+5. Click "Add Variable" again and enter:
+
+   Key:   BUILD_ID
+   Value: 2025-11-05.1
+
+6. Click "Deploy" button
+
+
+EXAMPLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If your generated keys are:
+  levqor_vR3mK9pL2xN8wQ7tY6hJ5gF4dS3aZ2xC1vB0nM9lK8jH
+  levqor_qP9oI8uY7tR6eW5qA4sD3fG2hJ1kL0zX9cV8bN7mM6
+
+Then in Replit, add:
+
+  Key:   API_KEYS
+  Value: levqor_vR3mK9pL2xN8wQ7tY6hJ5gF4dS3aZ2xC1vB0nM9lK8jH,levqor_qP9oI8uY7tR6eW5qA4sD3fG2hJ1kL0zX9cV8bN7mM6
+
+
+NEXT STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After adding keys and deploying:
+1. Copy your deployment URL
+2. Configure DNS
+3. Run smoke tests
+
+Need help? Just ask!
