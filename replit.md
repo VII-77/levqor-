@@ -36,6 +36,18 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
   - PRAGMA optimizations (journal_mode=WAL, synchronous=NORMAL)
   - Database backup script with WAL-aware copying
 - Fixed database path to use SQLITE_PATH (avoiding PostgreSQL DATABASE_URL conflict)
+- **Production-Grade Hardening:**
+  - Complete security headers: HSTS, CSP, COOP, COEP
+  - Request size limits: 512KB max body, 200KB max payload
+  - Rate-limit response headers with Retry-After
+  - URL and field validation with FormatChecker
+  - Manual HTTP(S) protocol validation for callback URLs
+  - Gunicorn environment variable tuning
+  - Version and build info in root endpoint
+  - Well-known files (security.txt, robots.txt)
+  - API key rotation support with API_KEYS_NEXT
+  - OpenAPI documentation endpoint
+  - All production tests passing
 
 ## Project Architecture
 
@@ -43,12 +55,16 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 - `run.py` - Main Flask application with API endpoints
 - `requirements.txt` - Python dependencies (Flask 3.0.0, jsonschema 4.22.0, requests 2.32.5, gunicorn 23.0.0)
 - `.env.example` - Environment variable template
+- `API_KEY_ROTATION.md` - API key rotation procedure documentation
 
 ### Public Pages
 - `public/legal/privacy.html` - Privacy policy
 - `public/legal/terms.html` - Terms of service
 - `public/legal/cookies.html` - Cookie notice
 - `public/faq/index.html` - FAQ page
+- `public/.well-known/security.txt` - Security contact information
+- `public/robots.txt` - Search engine crawling directives
+- `public/openapi.json` - OpenAPI 3.0 API documentation
 
 ### Scripts
 - `scripts/validate_levqor.py` - Endpoint validation script
@@ -134,10 +150,17 @@ Create consistent backups of the SQLite database:
   - Keys passed via `X-Api-Key` header
   - Development mode: When `API_KEYS` env var not set, all requests allowed
   - Production: Set `API_KEYS` environment variable (comma-separated values)
+  - Zero-downtime key rotation via `API_KEYS_NEXT` (see API_KEY_ROTATION.md)
 - **Rate Limiting:**
   - Per-IP burst limit: 20 requests/minute (configurable via `RATE_BURST`)
   - Global limit: 200 requests/minute (configurable via `RATE_GLOBAL`)
   - Returns 429 (Too Many Requests) when limits exceeded
+  - Response headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After
+- **Request Limits:**
+  - Maximum request body: 512KB (configurable via `MAX_CONTENT_LENGTH`)
+  - Maximum job payload: 200KB
+  - Workflow name: 1-128 characters
+  - Callback URL: 1-1024 characters, must be valid HTTP(S)
 - **Logging:**
   - Structured logging for all requests (method, path, IP, User-Agent)
   - Exception logging with full traceback
@@ -146,27 +169,41 @@ Create consistent backups of the SQLite database:
   - Configured for `https://levqor.ai`
   - Allowed methods: GET, POST, OPTIONS, PATCH
   - Allowed headers: Content-Type, Authorization, X-Api-Key
-- **Security Headers:**
+- **Security Headers (Production-Grade):**
+  - Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  - Content-Security-Policy: default-src 'none'; connect-src https://levqor.ai https://api.levqor.ai; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'
+  - Cross-Origin-Opener-Policy: same-origin
+  - Cross-Origin-Embedder-Policy: require-corp
   - X-Content-Type-Options: nosniff
   - X-Frame-Options: DENY
   - Referrer-Policy: strict-origin-when-cross-origin
   - Permissions-Policy: geolocation=(), microphone=()
 - **Input Validation:**
-  - JSON schema validation for all API requests
+  - JSON schema validation with FormatChecker for all API requests
+  - Field length constraints on all inputs
+  - Manual HTTP(S) protocol validation for callback URLs
   - Global error handler to prevent information leakage
 
 ### Current State
-- Production server (Gunicorn) running on port 5000 with 2 workers, 4 threads
+- **Production-Ready**: All hardening deltas completed and architect-approved
+- Production server (Gunicorn) running on port 5000 with 2 workers, 4 threads, 30s timeout
 - In-memory job store (JOBS dictionary)
 - SQLite database for user profiles (levqor.db) with WAL mode enabled
 - All endpoints operational and tested
-- Deployment configured for Autoscale
-- Root endpoint (/) available for health checks
+- Deployment configured for Autoscale with environment variable tuning
+- Root endpoint (/) with version and build info
 - User management with email-based idempotent upsert
+- Production-grade security: HSTS, CSP, COOP, COEP headers
 - Comprehensive security layer with API key auth and rate limiting
+- Rate-limit response headers (X-RateLimit-*, Retry-After)
+- Request size limits (512KB body, 200KB payload)
+- URL and field validation with length constraints
 - Structured logging for all requests
 - Database backup script for consistent snapshots
-- Ready for production database migration (PostgreSQL or Redis)
+- API key rotation support with dual-set validation
+- OpenAPI 3.0 documentation at /public/openapi.json
+- Well-known files (security.txt, robots.txt)
+- Ready for production deployment
 
 ## Next Phase
 - Replace in-memory job store with PostgreSQL or Redis
