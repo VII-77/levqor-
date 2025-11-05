@@ -1,0 +1,101 @@
+# OBJECTIVE: Apply final hardening to Levqor backend and verify.
+
+# 1) Patch run.py with:
+#  - HSTS, CSP, COOP/COEP headers
+#  - MAX_CONTENT_LENGTH = 512KB
+#  - API key rotation support (API_KEYS, API_KEYS_NEXT)
+#  - Rate limiting with 429 + Retry-After + X-RateLimit-* headers
+#  - Hardened INTAKE_SCHEMA + payload size check
+#  - Root / with version/build
+#  - /public/openapi.json
+#  - Logging + error handler
+# Then ensure all POST/PATCH call require_key() and throttle()
+
+# 2) Create well-known + robots
+mkdir -p public/.well-known
+cat > public/.well-known/security.txt <<'TXT'
+Contact: mailto:security@levqor.ai
+Expires: 2026-11-05
+Policy: https://levqor.ai/legal/terms
+Preferred-Languages: en
+TXT
+cat > public/robots.txt <<'TXT'
+User-agent: *
+Disallow:
+Sitemap: https://levqor.ai/sitemap.xml
+TXT
+
+# 3) Ensure gunicorn is in requirements.txt
+grep -q gunicorn requirements.txt || echo "gunicorn==21.2.0" >> requirements.txt
+
+# 4) Install + restart dev server
+pip install -r requirements.txt
+python run.py & sleep 2
+
+# 5) Print health checks
+echo "== Root =="
+curl -sI http://0.0.0.0:8080/ | head -n1
+echo "== Metrics =="
+curl -sI http://0.0.0.0:8080/public/metrics | grep -E 'Strict-Transport|Content-Security-Policy|X-Frame-Options' || true
+
+echo "All patches applied. Set deployment Start Command to:"
+echo "gunicorn --workers \${GUNICORN_WORKERS:-2} --threads \${GUNICORN_THREADS:-4} --timeout \${GUNICORN_TIMEOUT:-30} --graceful-timeout 20 --bind 0.0.0.0:\$PORT --reuse-port --log-level info run:app"
+
+Files to add (once)
+
+public/.well-known/security.txt
+
+Contact: mailto:security@levqor.ai
+Expires: 2026-11-05
+Policy: https://levqor.ai/legal/terms
+Preferred-Languages: en
+
+public/robots.txt
+
+User-agent: *
+Disallow:
+Sitemap: https://levqor.ai/sitemap.xml
+
+Deploy command
+
+gunicorn --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-4} \
+  --timeout ${GUNICORN_TIMEOUT:-30} --graceful-timeout 20 \
+  --bind 0.0.0.0:$PORT --reuse-port --log-level info run:app
+
+Quick tests (replace <host> when live)
+
+curl -sI https://<host>/ | head -n1
+curl -s  https://<host>/ | jq
+curl -sI https://<host>/public/metrics | grep -E 'Strict-Transport|Content-Security-Policy|X-Frame-Options'
+python - <<'PY'
+import requests,json
+u="https://<host>/api/v1/intake"
+d={"workflow":"w","payload":{"x":"a"*300000}}
+print("oversize:", requests.post(u,headers={"X-Api-Key":"levqor_dev_abc123"},json=d,timeout=10).status_code)
+PY
+for i in $(seq 1 25); do
+  curl -s -o /dev/null -w "%{http_code} " \
+    -H "X-Api-Key: levqor_dev_abc123" -H "Content-Type: application/json" \
+    -d '{"workflow":"w","payload":{}}' https://<host>/api/v1/intake
+done; echo
+
+Go/No-Go
+
+HSTS, CSP, COOP/COEP present.
+
+MAX_CONTENT_LENGTH active.
+
+429 shows Retry-After and rate headers.
+
+URL and length validation enforced.
+
+Gunicorn uses $PORT with timeouts.
+
+/.well-known/security.txt reachable.
+
+Backups scheduled and tested.
+
+API key rotation doc added.
+
+
+When all check green, ship.
