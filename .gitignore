@@ -36,3 +36,7 @@ htmlcov/
 *.swp
 *.swo
 *~
+
+*.db
+*.sqlite
+*.sqlite3

@@ -2,10 +2,38 @@ from flask import Flask, request, jsonify
 from jsonschema import validate, ValidationError
 from time import time
 from uuid import uuid4
+import sqlite3
+import json
+import os
 
 app = Flask(__name__, 
     static_folder='public',
     static_url_path='/public')
+
+DB_PATH = os.environ.get("DATABASE_URL", os.path.join(os.getcwd(), "levqor.db"))
+_db_connection = None
+
+def get_db():
+    global _db_connection
+    if _db_connection is None:
+        db_dir = os.path.dirname(DB_PATH)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+        _db_connection = sqlite3.connect(DB_PATH, check_same_thread=False)
+        _db_connection.execute("""
+          CREATE TABLE IF NOT EXISTS users(
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            name TEXT,
+            locale TEXT,
+            currency TEXT,
+            meta TEXT,
+            created_at REAL,
+            updated_at REAL
+          )
+        """)
+        _db_connection.commit()
+    return _db_connection
 
 @app.after_request
 def add_headers(r):
@@ -61,8 +89,55 @@ STATUS_SCHEMA = {
     "additionalProperties": True,
 }
 
+USER_UPSERT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "email": {"type": "string", "minLength": 3},
+        "name": {"type": "string"},
+        "locale": {"type": "string"},
+        "currency": {"type": "string", "enum": ["GBP", "USD", "EUR"]},
+        "meta": {"type": "object"}
+    },
+    "required": ["email"],
+    "additionalProperties": False
+}
+
+USER_PATCH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "locale": {"type": "string"},
+        "currency": {"type": "string", "enum": ["GBP", "USD", "EUR"]},
+        "meta": {"type": "object"}
+    },
+    "additionalProperties": False
+}
+
 def bad_request(message, details=None):
     return jsonify({"error": message, "details": details}), 400
+
+def row_to_user(row):
+    if not row:
+        return None
+    (id_, email, name, locale, currency, meta, created_at, updated_at) = row
+    return {
+        "id": id_,
+        "email": email,
+        "name": name,
+        "locale": locale,
+        "currency": currency,
+        "meta": json.loads(meta) if meta else {},
+        "created_at": created_at,
+        "updated_at": updated_at
+    }
+
+def fetch_user_by_email(email):
+    cur = get_db().execute("SELECT id,email,name,locale,currency,meta,created_at,updated_at FROM users WHERE email = ?", (email,))
+    return row_to_user(cur.fetchone())
+
+def fetch_user_by_id(uid):
+    cur = get_db().execute("SELECT id,email,name,locale,currency,meta,created_at,updated_at FROM users WHERE id = ?", (uid,))
+    return row_to_user(cur.fetchone())
 
 @app.post("/api/v1/intake")
 def intake():
@@ -113,6 +188,83 @@ def dev_complete(job_id):
     job["status"] = "succeeded"
     job["result"] = body.get("result", {"ok": True})
     return jsonify({"ok": True})
+
+@app.post("/api/v1/users/upsert")
+def users_upsert():
+    if not request.is_json:
+        return bad_request("Content-Type must be application/json")
+    body = request.get_json(silent=True) or {}
+    try:
+        validate(instance=body, schema=USER_UPSERT_SCHEMA)
+    except ValidationError as e:
+        return bad_request("Invalid user payload", e.message)
+
+    now = time()
+    email = body["email"].strip().lower()
+    name = body.get("name")
+    locale = body.get("locale")
+    currency = body.get("currency")
+    meta = json.dumps(body.get("meta", {}))
+
+    existing = fetch_user_by_email(email)
+    if existing:
+        get_db().execute(
+            "UPDATE users SET name=?, locale=?, currency=?, meta=?, updated_at=? WHERE email=?",
+            (name, locale, currency, meta, now, email)
+        )
+        get_db().commit()
+        return jsonify({"updated": True, "user": fetch_user_by_email(email)}), 200
+    else:
+        uid = uuid4().hex
+        get_db().execute(
+            "INSERT INTO users(id,email,name,locale,currency,meta,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
+            (uid, email, name, locale, currency, meta, now, now)
+        )
+        get_db().commit()
+        return jsonify({"created": True, "user": fetch_user_by_id(uid)}), 201
+
+@app.patch("/api/v1/users/<user_id>")
+def users_patch(user_id):
+    if not request.is_json:
+        return bad_request("Content-Type must be application/json")
+    body = request.get_json(silent=True) or {}
+    try:
+        validate(instance=body, schema=USER_PATCH_SCHEMA)
+    except ValidationError as e:
+        return bad_request("Invalid patch payload", e.message)
+
+    u = fetch_user_by_id(user_id)
+    if not u:
+        return jsonify({"error": "not_found", "user_id": user_id}), 404
+
+    name = body.get("name", u["name"])
+    locale = body.get("locale", u["locale"])
+    currency = body.get("currency", u["currency"])
+    meta = u["meta"].copy()
+    meta.update(body.get("meta", {}))
+    get_db().execute(
+        "UPDATE users SET name=?, locale=?, currency=?, meta=?, updated_at=? WHERE id=?",
+        (name, locale, currency, json.dumps(meta), time(), user_id)
+    )
+    get_db().commit()
+    return jsonify({"updated": True, "user": fetch_user_by_id(user_id)}), 200
+
+@app.get("/api/v1/users/<user_id>")
+def users_get(user_id):
+    u = fetch_user_by_id(user_id)
+    if not u:
+        return jsonify({"error": "not_found", "user_id": user_id}), 404
+    return jsonify(u), 200
+
+@app.get("/api/v1/users")
+def users_lookup():
+    email = request.args.get("email", "").strip().lower()
+    if not email:
+        return bad_request("email query param required")
+    u = fetch_user_by_email(email)
+    if not u:
+        return jsonify({"error": "not_found", "email": email}), 404
+    return jsonify(u), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

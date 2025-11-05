@@ -19,6 +19,11 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 - Added FAQ page
 - Created validation script for endpoint testing
 - Configured workflow to run on port 5000
+- Fixed deployment health checks with root (/) endpoint
+- Switched to Gunicorn production server
+- Added user profile management with SQLite database
+- Implemented idempotent email-based user upsert
+- Added user lookup, get, and patch endpoints
 
 ## Project Architecture
 
@@ -74,6 +79,21 @@ On success, you'll see: `🟢 COCKPIT GREEN — Levqor backend validated`
   - Body: `{"result": {}}`
   - Returns: `{"ok": true}`
 
+#### User Management
+- `POST /api/v1/users/upsert` - Create or update user by email (idempotent)
+  - Body: `{"email": "user@example.com", "name": "Name", "locale": "en-GB", "currency": "GBP|USD|EUR", "meta": {}}`
+  - Returns: `{"created": true, "user": {...}}` (201) or `{"updated": true, "user": {...}}` (200)
+  
+- `GET /api/v1/users?email=<email>` - Lookup user by email
+  - Returns: User object (200) or `{"error": "not_found"}` (404)
+  
+- `GET /api/v1/users/<user_id>` - Get user by ID
+  - Returns: User object (200) or `{"error": "not_found"}` (404)
+  
+- `PATCH /api/v1/users/<user_id>` - Update user fields
+  - Body: `{"name": "New Name", "locale": "en-US", "currency": "USD", "meta": {"key": "value"}}`
+  - Returns: `{"updated": true, "user": {...}}` (200)
+
 ### Security & CORS
 - CORS configured for `https://levqor.ai`
 - Security headers: X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
@@ -82,10 +102,12 @@ On success, you'll see: `🟢 COCKPIT GREEN — Levqor backend validated`
 ### Current State
 - Production server (Gunicorn) running on port 5000
 - In-memory job store (JOBS dictionary)
+- SQLite database for user profiles (levqor.db)
 - All endpoints operational and tested
 - Deployment configured for Autoscale
 - Root endpoint (/) available for health checks
-- Ready for production database integration
+- User management with email-based idempotent upsert
+- Ready for production database migration (PostgreSQL or Redis)
 
 ## Next Phase
 - Replace in-memory job store with PostgreSQL or Redis
