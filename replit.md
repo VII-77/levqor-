@@ -37,8 +37,29 @@ A dedicated `notifier.py` module integrates with Resend.com for sending branded 
 ### Automated Tasks
 An APScheduler-based system performs daily database backups, logging to `logs/backup.log`.
 
+### Analytics & Metrics Tracking
+A comprehensive analytics system tracks user engagement across the marketing frontend. Events are stored in SQLite (`metrics` table) with the following capabilities:
+- **Event Types**: `page_view`, `cta_click`, `newsletter`, `conversion`
+- **API Endpoints**:
+  - `POST /api/v1/metrics/track`: Records user events with payload and referrer data
+  - `GET /api/v1/metrics/summary`: Returns aggregated metrics with time-based analytics
+- **Dashboard**: Protected analytics dashboard at `/dashboard?token=<DASHBOARD_TOKEN>` showing:
+  - Total and 24h/7d metrics
+  - Conversion rate and CTR calculations
+  - Daily event breakdown
+- **Privacy**: Email addresses are hashed (SHA-256) before storage to protect PII
+
+### Marketing Frontend
+A Next.js 14 marketing website (`levqor-web/` directory) built with TypeScript and App Router:
+- **Landing Page**: Hero section, features showcase, pricing preview, CTA buttons
+- **Pricing Page**: Detailed plan comparison with Stripe checkout integration
+- **Analytics Dashboard**: Token-protected metrics visualization
+- **Components**: 6 reusable React components (Hero, Features, Pricing, CTAButton, Newsletter, Footer)
+- **Tracking**: Automatic event logging via `logEvent()` utility (692 lines of TypeScript)
+- **Configuration**: Environment variables for backend API endpoints and analytics tokens
+
 ### Deployment
-The application is deployed to Replit Autoscale, utilizing Gunicorn as the production server. Custom domain (api.levqor.ai) is configured.
+The application is deployed to Replit Autoscale, utilizing Gunicorn as the production server. Custom domain (api.levqor.ai) is configured. The Next.js frontend can be deployed to Vercel or other hosting platforms.
 
 ## External Dependencies
 - **Flask**: Web framework.
@@ -69,3 +90,13 @@ The application is deployed to Replit Autoscale, utilizing Gunicorn as the produ
   - Implemented `/api/v1/marketing/summary` endpoint for analytics
   - Added OpenGraph and Twitter Card meta tags to all docs/blog pages
   - Enhanced social sharing capabilities across documentation
+
+- **Analytics & Metrics System:**
+  - Created `metrics` table in SQLite database with indexes on type and timestamp
+  - Implemented `POST /api/v1/metrics/track` endpoint for event tracking
+  - Implemented `GET /api/v1/metrics/summary` endpoint with aggregated analytics
+  - Built Next.js marketing frontend (841 lines of TypeScript code) in `levqor-web/`
+  - Created protected analytics dashboard at `/dashboard?token=<DASHBOARD_TOKEN>`
+  - Integrated automatic tracking in all CTA buttons, page views, newsletter signups
+  - Privacy-focused design: email addresses hashed before storage
+  - Tracks conversion rate, CTR, and daily event breakdowns
