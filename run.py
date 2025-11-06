@@ -1057,6 +1057,112 @@ def deduct_credit(user_id):
     except Exception:
         return False
 
+@app.post("/api/v1/plan")
+def ai_plan():
+    """Convert natural language workflow description to JSON pipeline using AI"""
+    body = request.get_json(silent=True) or {}
+    description = body.get("description", "").strip()
+    
+    if not description:
+        return jsonify({"error": "description required"}), 400
+    
+    try:
+        pipeline_id = uuid4().hex
+        
+        # Mock AI planning (replace with OpenAI GPT-5-mini when OPENAI_API_KEY is available)
+        # For now, return a template pipeline based on keywords
+        pipeline = {
+            "id": pipeline_id,
+            "description": description,
+            "trigger": "manual",
+            "actions": []
+        }
+        
+        # Simple keyword-based pipeline generation
+        desc_lower = description.lower()
+        if "email" in desc_lower or "gmail" in desc_lower:
+            pipeline["trigger"] = "email.received"
+            pipeline["actions"].append({"type": "summarize", "connector": "ai"})
+        
+        if "slack" in desc_lower:
+            pipeline["actions"].append({"type": "sendSlack", "connector": "slack", "params": {"channel": "general"}})
+        
+        if "notion" in desc_lower:
+            pipeline["actions"].append({"type": "createPage", "connector": "notion"})
+        
+        if not pipeline["actions"]:
+            pipeline["actions"] = [
+                {"type": "log", "message": "Workflow executed"}
+            ]
+        
+        # Save pipeline
+        pipeline_path = f"data/pipelines/{pipeline_id}.json"
+        with open(pipeline_path, "w") as f:
+            json.dump(pipeline, f, indent=2)
+        
+        return jsonify({"status": "ok", "pipeline": pipeline}), 200
+        
+    except Exception as e:
+        log.exception("AI planning error")
+        return jsonify({"error": str(e)}), 500
+
+@app.post("/api/v1/run")
+def run_pipeline():
+    """Execute a saved pipeline"""
+    guard = require_key()
+    if guard:
+        return guard
+    
+    body = request.get_json(silent=True) or {}
+    pipeline_id = body.get("pipeline_id")
+    user_id = body.get("user_id")
+    
+    if not pipeline_id:
+        return jsonify({"error": "pipeline_id required"}), 400
+    
+    try:
+        # Load pipeline
+        pipeline_path = f"data/pipelines/{pipeline_id}.json"
+        if not os.path.exists(pipeline_path):
+            return jsonify({"error": "pipeline_not_found"}), 404
+        
+        with open(pipeline_path, "r") as f:
+            pipeline = json.load(f)
+        
+        # Deduct credit if user_id provided
+        if user_id:
+            if not deduct_credit(user_id):
+                return jsonify({"error": "insufficient_credits"}), 402
+        
+        # Execute pipeline actions
+        results = []
+        for action in pipeline.get("actions", []):
+            action_type = action.get("type")
+            connector = action.get("connector")
+            
+            if connector in ["slack", "notion", "gmail"]:
+                # Would execute connector here
+                results.append({"action": action_type, "status": "simulated"})
+            else:
+                results.append({"action": action_type, "status": "completed"})
+        
+        # Log execution
+        execution_log = {
+            "pipeline_id": pipeline_id,
+            "user_id": user_id,
+            "timestamp": time(),
+            "results": results
+        }
+        
+        with open("data/jobs.jsonl", "a") as f:
+            f.write(json.dumps(execution_log) + "\n")
+        
+        return jsonify({"status": "ok", "execution": execution_log}), 200
+        
+    except Exception as e:
+        log.exception("Pipeline execution error")
+        return jsonify({"error": str(e)}), 500
+
 @app.post("/api/v1/connect/<name>")
 def connect(name):
     """
