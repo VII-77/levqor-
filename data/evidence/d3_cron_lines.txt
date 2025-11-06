@@ -1,0 +1,31 @@
+D3 UPTIME MONITORING - EXACT CRON LINES
+========================================
+
+Add these lines to your crontab (run: crontab -e):
+
+# Levqor Backend Monitor - Check /ready every 5 minutes
+*/5 * * * * curl -f -s -o /dev/null -w "%{http_code}" https://api.levqor.ai/ready | grep -q "200" || echo "Backend down at $(date)" >> /var/log/levqor_uptime.log
+
+# Levqor Frontend Monitor - Check homepage every 5 minutes
+*/5 * * * * curl -f -s -o /dev/null -w "%{http_code}" https://app.levqor.ai/ | grep -q "200" || echo "Frontend down at $(date)" >> /var/log/levqor_uptime.log
+
+EXPLANATION:
+- */5 * * * * = Run every 5 minutes
+- curl -f = Fail silently on HTTP errors
+- -s = Silent mode (no progress bar)
+- -o /dev/null = Discard response body
+- -w "%{http_code}" = Output only HTTP status code
+- grep -q "200" = Check if status is 200 OK
+- || = If check fails, log the downtime
+
+MONITOR URLS:
+- Backend: https://api.levqor.ai/ready
+- Frontend: https://app.levqor.ai/
+
+LOGS:
+- /var/log/levqor_uptime.log
+
+ALTERNATIVE: UptimeRobot
+- Create account at uptimerobot.com
+- Add 2 HTTP(s) monitors with 5-minute intervals
+- Configure alert contacts (email, SMS, Slack)

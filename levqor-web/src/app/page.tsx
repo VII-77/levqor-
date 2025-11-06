@@ -3,39 +3,10 @@ import USPGrid from '@/components/USPGrid';
 import Testimonials from '@/components/Testimonials';
 import LiveStats from '@/components/LiveStats';
 import SubscribeForm from '@/components/SubscribeForm';
+import StatusBadge from '@/components/StatusBadge';
 import Link from 'next/link';
 
-interface LandingData {
-  headline: string;
-  subheadline: string;
-  cta_primary: string;
-  cta_secondary: string;
-}
-
-async function getLandingData(): Promise<LandingData> {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_ASSETS_BASE}/marketing/landing_snippets.json`, {
-      cache: 'no-store',
-    });
-    
-    if (!res.ok) {
-      throw new Error('Failed to fetch landing data');
-    }
-    
-    return res.json();
-  } catch (error) {
-    return {
-      headline: 'Production-Ready Job Orchestration for AI Automation',
-      subheadline: 'Stop rebuilding infrastructure. Start building AI features.',
-      cta_primary: 'Start Free Trial',
-      cta_secondary: 'View Documentation',
-    };
-  }
-}
-
-export default async function Home() {
-  const data = await getLandingData();
-
+export default function Home() {
   return (
     <main style={{
       maxWidth: '1200px',
@@ -46,13 +17,14 @@ export default async function Home() {
         textAlign: 'center',
         padding: '80px 20px',
       }}>
+        <StatusBadge />
         <h1 style={{
           fontSize: '48px',
           fontWeight: 700,
           marginBottom: '24px',
           lineHeight: 1.2,
         }}>
-          {data.headline}
+          Levqor automates your business with a self-running AI engine
         </h1>
         <p style={{
           fontSize: '24px',
@@ -61,7 +33,7 @@ export default async function Home() {
           maxWidth: '700px',
           margin: '0 auto 40px',
         }}>
-          {data.subheadline}
+          No cron. No plugins.
         </p>
         <div style={{
           display: 'flex',
@@ -69,10 +41,21 @@ export default async function Home() {
           justifyContent: 'center',
           flexWrap: 'wrap',
         }}>
-          <CTAButton plan="monthly">
-            {data.cta_primary}
-          </CTAButton>
           <Link href="/pricing">
+            <button style={{
+              padding: '14px 28px',
+              fontSize: '16px',
+              fontWeight: 600,
+              color: '#fff',
+              backgroundColor: '#0066cc',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+            }}>
+              View Pricing
+            </button>
+          </Link>
+          <Link href="https://api.levqor.ai/public/docs/" target="_blank">
             <button style={{
               padding: '12px 24px',
               fontSize: '16px',
@@ -83,7 +66,7 @@ export default async function Home() {
               borderRadius: '6px',
               cursor: 'pointer',
             }}>
-              {data.cta_secondary}
+              View Documentation
             </button>
           </Link>
         </div>

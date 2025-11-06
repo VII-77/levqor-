@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_ASSETS_BASE": "https://api.levqor.ai",
+    "NEXT_PUBLIC_BACKEND_CHECKOUT": "https://api.levqor.ai/billing/create-checkout-session",
+    "NEXT_PUBLIC_STATUS_URL": "https://api.levqor.ai/ready"
+  }
+}

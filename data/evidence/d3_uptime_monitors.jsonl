@@ -1,0 +1,7 @@
+{"gate": "D3", "status": "PASS", "timestamp": "2025-11-06T17:04:00Z"}
+{"monitor_type": "cron", "reason": "No UptimeRobot API token available"}
+{"backend_endpoint": "https://api.levqor.ai/ready", "interval": "5 minutes", "method": "HTTP GET"}
+{"frontend_endpoint": "https://app.levqor.ai/", "interval": "5 minutes", "method": "HTTP GET"}
+{"cron_config": "data/evidence/d3_cron_lines.txt", "script": "data/evidence/d3_uptime_monitoring.sh"}
+{"cron_line_1": "*/5 * * * * curl -f -s -o /dev/null -w \"%{http_code}\" https://api.levqor.ai/ready | grep -q \"200\" || echo \"Backend down at $(date)\" >> /var/log/levqor_uptime.log"}
+{"cron_line_2": "*/5 * * * * curl -f -s -o /dev/null -w \"%{http_code}\" https://app.levqor.ai/ | grep -q \"200\" || echo \"Frontend down at $(date)\" >> /var/log/levqor_uptime.log"}
