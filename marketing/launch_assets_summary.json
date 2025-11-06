@@ -1,0 +1,119 @@
+{
+  "status": "success",
+  "timestamp": "2025-11-06T16:25:00Z",
+  "assets": {
+    "press_kit": {
+      "path": "marketing/press_kit.md",
+      "url": "/press",
+      "size_kb": "~15",
+      "status": "created",
+      "contents": [
+        "Product overview and one-liner",
+        "Brand assets (colors, typography, logo usage)",
+        "Product screenshots links",
+        "Key features and technical specs",
+        "Pricing information",
+        "Company information",
+        "Use cases and boilerplate text"
+      ]
+    },
+    "product_hunt": {
+      "path": "marketing/product_hunt.md",
+      "size_kb": "~12",
+      "status": "created",
+      "metadata": {
+        "name": "Levqor — Automation that runs itself",
+        "tagline": "Smaller. Faster. Smarter. Self-driving automation.",
+        "category": "Developer Tools > API Tools",
+        "website": "https://app.levqor.ai"
+      },
+      "includes": [
+        "150-word product description",
+        "First comment (maker's introduction)",
+        "Maker's note",
+        "5 comprehensive FAQs",
+        "Pricing summary with 3 tiers",
+        "CTA links and special Product Hunt offer",
+        "Social proof and testimonials",
+        "Media assets links",
+        "Launch goals and metrics"
+      ]
+    },
+    "og_images": {
+      "launch": {
+        "path": "public/og/launch.jpg",
+        "url": "/og/launch.jpg",
+        "dimensions": "1200x630",
+        "format": "JPG",
+        "status": "created",
+        "usage": "Homepage, press kit, general sharing"
+      },
+      "pricing": {
+        "path": "public/og/pricing.jpg",
+        "url": "/og/pricing.jpg",
+        "dimensions": "1200x630",
+        "format": "JPG",
+        "status": "created",
+        "usage": "Pricing page social sharing"
+      },
+      "note": "SVG sources also available for customization"
+    },
+    "nextjs_routes": {
+      "press": {
+        "url": "https://app.levqor.ai/press",
+        "file": "levqor-web/src/app/press/page.tsx",
+        "status": "built",
+        "type": "static",
+        "og_image": "/og/launch.jpg",
+        "features": [
+          "Renders marketing/press_kit.md",
+          "Custom markdown-to-HTML converter",
+          "Branded styling",
+          "Press contact CTA",
+          "Asset download links"
+        ]
+      },
+      "pricing": {
+        "url": "https://app.levqor.ai/pricing",
+        "file": "levqor-web/src/app/pricing/page.tsx",
+        "status": "built",
+        "type": "static",
+        "og_image": "/og/pricing.jpg",
+        "metadata": "Enhanced with OG meta tags"
+      }
+    }
+  },
+  "verification": {
+    "build_status": "passed",
+    "build_output": "Next.js build completed successfully",
+    "routes_generated": [
+      "/ (dynamic)",
+      "/press (static)",
+      "/pricing (static)",
+      "/dashboard (dynamic)"
+    ],
+    "og_images_linked": true,
+    "meta_tags_verified": true,
+    "file_locations": {
+      "press_kit": "marketing/press_kit.md",
+      "product_hunt": "marketing/product_hunt.md",
+      "og_images": "public/og/*.{jpg,svg}",
+      "nextjs_public": "levqor-web/public/og/*.{jpg,svg}"
+    }
+  },
+  "deployment_ready": {
+    "backend": "https://api.levqor.ai",
+    "frontend": "https://app.levqor.ai",
+    "press_endpoint": "/press",
+    "pricing_endpoint": "/pricing",
+    "og_images": [
+      "/og/launch.jpg",
+      "/og/pricing.jpg"
+    ]
+  },
+  "summary": {
+    "press": "/press",
+    "ph": "marketing/product_hunt.md",
+    "og": "/og/launch.jpg"
+  }
+}

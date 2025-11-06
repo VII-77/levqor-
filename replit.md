@@ -119,3 +119,12 @@ The application is deployed to Replit Autoscale, utilizing Gunicorn as the produ
   - Verified automated backup system: Latest backup `backup_20251106T161804Z.db`
   - All production readiness checks passed
   - Documentation: `RELIABILITY_GATE_REPORT.md`
+
+- **Public Launch Assets:**
+  - Created `marketing/press_kit.md`: Complete press kit with brand assets, product info, boilerplate text
+  - Created `marketing/product_hunt.md`: Launch package with tagline, description, FAQs, pricing, CTAs
+  - Generated OpenGraph images (1200x630): `public/og/launch.jpg`, `public/og/pricing.jpg`
+  - Added `/press` route to Next.js app with custom markdown renderer
+  - Updated all meta tags to use new OG images
+  - Build verified: All routes static, OG images linked correctly
+  - Summary: `marketing/launch_assets_summary.json`
