@@ -1,0 +1,101 @@
+Understood. You want one Replit AI Agent prompt that sets up branded email (e.g. support@ / billing@ / no-reply@ / security@ @ levqor.ai) automatically and connects it to your running backend for alerts and outgoing messages.
+
+Paste the block below into your Replit AI Agent inside your backend Repl.
+
+
+---
+
+You are the Replit AI Agent. Configure branded email for Levqor (levqor.ai). Goal: create and verify outbound + inbound email system using Google Workspace or Mailgun automatically, wire it into the existing notifier module, and generate all DNS and config files.
+
+OBJECTIVE
+- Create four functional emails:
+  support@levqor.ai
+  billing@levqor.ai
+  no-reply@levqor.ai
+  security@levqor.ai
+- Use chosen provider (prefer Mailgun if Google Workspace not yet active).
+- Generate verified DNS records (SPF, DKIM, DMARC, MX) for levqor.ai.
+- Integrate with existing `notifier.py` for alert and transactional use.
+- Test send via backend, confirm deliverability, store logs.
+- Keep secrets safe; never print passwords.
+
+TASKS
+1. Detect environment:
+   - If GOOGLE_WORKSPACE_API_KEY or account file exists → use Gmail SMTP.
+   - Else use Mailgun (create free Foundation domain via API).
+   - Store chosen provider in `config/email_provider.json`.
+
+2. For Mailgun path:
+   - Create sandbox or custom domain `levqor.ai` via API.
+   - Fetch DNS records (SPF, DKIM, MX) → save to `docs/DNS_EMAIL.txt`.
+   - Mask keys in logs.
+   - Add `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `MAILGUN_SMTP_LOGIN`, `MAILGUN_SMTP_PASSWORD` to secrets.
+
+3. For Gmail path (if Workspace active):
+   - Configure SMTP vars:
+     SMTP_HOST=smtp.gmail.com
+     SMTP_PORT=587
+     SMTP_USER=no-reply@levqor.ai
+     SMTP_PASS=<app password> (user adds)
+     ALERT_EMAIL_TO=support@levqor.ai
+   - Write verification checklist to `docs/EMAIL_SETUP.md`.
+
+4. notifier integration:
+   - Update `notifier.py` to prefer Mailgun if keys exist, else fallback to Gmail.
+   - Add new helper:
+     ```python
+     def notify_support(subject,msg): send_email("support@levqor.ai",subject,msg)
+     def notify_billing(subject,msg): send_email("billing@levqor.ai",subject,msg)
+     def notify_security(subject,msg): send_email("security@levqor.ai",subject,msg)
+     ```
+   - Verify send path:
+     ```python
+     import notifier; notifier.alert("Email system check","Levqor email pipeline OK")
+     ```
+
+5. Logging
+   - Create `logs/email_test.log` recording success/failure and response IDs.
+   - Redact all sensitive tokens.
+
+6. DNS output
+   - Produce plain text file `docs/LEVQOR_EMAIL_DNS.txt` with exact DNS records to copy into Cloudflare:
+     - SPF, DKIM, DMARC, MX (Mailgun or Google).
+     - Example: 
+       ```
+       @ TXT v=spf1 include:mailgun.org ~all
+       krs._domainkey TXT v=DKIM1; k=rsa; p=...
+       _dmarc TXT v=DMARC1; p=quarantine; rua=mailto:dmarc@levqor.ai; sp=quarantine
+       ```
+   - End of file: “Paste these records in Cloudflare DNS, then run verify step below.”
+
+7. Verification
+   - Run DNS check via dig:
+     ```
+     dig TXT levqor.ai +short
+     dig TXT _dmarc.levqor.ai +short
+     ```
+   - Send 1 test message:
+     ```
+     python3 - <<'PY'
+     import notifier; notifier.alert("Levqor Test","This is a live test from levqor.ai backend.")
+     PY
+     ```
+   - Append “✅ Verified” to `logs/email_test.log` if 250 OK.
+
+8. Output summary
+   Print compact report:
+
+Provider: Mailgun or Gmail From: no-reply@levqor.ai Support: support@levqor.ai Billing: billing@levqor.ai Security: security@levqor.ai DNS records: docs/LEVQOR_EMAIL_DNS.txt Test send: PASS/FAIL Next step: Paste DNS → rerun verify
+
+SAFETY
+- Never expose raw API keys.
+- Fail closed if DNS not confirmed.
+- Auto-retry send once if transient SMTP 4xx.
+
+
+---
+
+After the agent finishes, open
+docs/LEVQOR_EMAIL_DNS.txt → copy those DNS records into Cloudflare under levqor.ai.
+Then rerun the “verify” step at the end of the file.
+That’s it — four branded emails live and wired into your backend alert system.
