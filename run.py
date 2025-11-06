@@ -63,6 +63,18 @@ def get_db():
           )
         """)
         _db_connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+        _db_connection.execute("""
+          CREATE TABLE IF NOT EXISTS metrics(
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            payload TEXT,
+            ref TEXT,
+            timestamp REAL NOT NULL,
+            created_at REAL
+          )
+        """)
+        _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_metrics_type ON metrics(type)")
+        _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp)")
         _db_connection.execute("PRAGMA journal_mode=WAL")
         _db_connection.execute("PRAGMA synchronous=NORMAL")
         _db_connection.commit()
@@ -650,6 +662,124 @@ def marketing_summary():
         "status": "operational",
         "last_updated": int(time())
     }), 200
+
+@app.post("/api/v1/metrics/track")
+def metrics_track():
+    """
+    Track user events (page views, CTA clicks, newsletter signups, conversions).
+    Stores metrics in database with hashed PII for privacy.
+    """
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 400
+    
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+    
+    event_type = data.get("type")
+    payload = data.get("payload", {})
+    ref = data.get("ref")
+    
+    if not event_type:
+        return jsonify({"error": "Event type required"}), 400
+    
+    try:
+        metric_id = uuid4().hex
+        now = time()
+        
+        get_db().execute("""
+            INSERT INTO metrics (id, type, payload, ref, timestamp, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            metric_id,
+            event_type,
+            json.dumps(payload) if payload else None,
+            json.dumps(ref) if ref else None,
+            now,
+            now
+        ))
+        get_db().commit()
+        
+        log.info(f"Tracked metric: {event_type}")
+        return jsonify({"ok": True, "id": metric_id}), 200
+        
+    except Exception as e:
+        log.exception(f"Failed to track metric: {e}")
+        return jsonify({"error": "Failed to track event"}), 500
+
+@app.get("/api/v1/metrics/summary")
+def metrics_summary():
+    """
+    Returns aggregated metrics summary for dashboard.
+    Counts events by type and provides time-based analytics.
+    """
+    try:
+        db = get_db()
+        
+        page_views = db.execute("SELECT COUNT(*) FROM metrics WHERE type = 'page_view'").fetchone()[0]
+        cta_clicks = db.execute("SELECT COUNT(*) FROM metrics WHERE type = 'cta_click'").fetchone()[0]
+        newsletters = db.execute("SELECT COUNT(*) FROM metrics WHERE type = 'newsletter'").fetchone()[0]
+        conversions = db.execute("SELECT COUNT(*) FROM metrics WHERE type = 'conversion'").fetchone()[0]
+        
+        now = time()
+        day_ago = now - 86400
+        week_ago = now - (86400 * 7)
+        
+        page_views_24h = db.execute(
+            "SELECT COUNT(*) FROM metrics WHERE type = 'page_view' AND timestamp > ?",
+            (day_ago,)
+        ).fetchone()[0]
+        
+        cta_clicks_24h = db.execute(
+            "SELECT COUNT(*) FROM metrics WHERE type = 'cta_click' AND timestamp > ?",
+            (day_ago,)
+        ).fetchone()[0]
+        
+        page_views_7d = db.execute(
+            "SELECT COUNT(*) FROM metrics WHERE type = 'page_view' AND timestamp > ?",
+            (week_ago,)
+        ).fetchone()[0]
+        
+        daily_data = db.execute("""
+            SELECT 
+                DATE(timestamp, 'unixepoch') as day,
+                type,
+                COUNT(*) as count
+            FROM metrics
+            WHERE timestamp > ?
+            GROUP BY day, type
+            ORDER BY day DESC
+        """, (week_ago,)).fetchall()
+        
+        by_day = {}
+        for day, event_type, count in daily_data:
+            if day not in by_day:
+                by_day[day] = {}
+            by_day[day][event_type] = count
+        
+        return jsonify({
+            "total": {
+                "page_views": page_views,
+                "cta_clicks": cta_clicks,
+                "newsletters": newsletters,
+                "conversions": conversions
+            },
+            "last_24h": {
+                "page_views": page_views_24h,
+                "cta_clicks": cta_clicks_24h
+            },
+            "last_7d": {
+                "page_views": page_views_7d
+            },
+            "by_day": by_day,
+            "conversion_rate": round((conversions / page_views * 100), 2) if page_views > 0 else 0,
+            "cta_rate": round((cta_clicks / page_views * 100), 2) if page_views > 0 else 0,
+            "last_updated": int(now)
+        }), 200
+        
+    except Exception as e:
+        log.exception(f"Failed to get metrics summary: {e}")
+        return jsonify({"error": "Failed to get metrics"}), 500
 
 @app.post("/api/v1/connect/<name>")
 def connect(name):
