@@ -1,0 +1,118 @@
+Paste this into your Replit AI Agent inside your backend Repl.
+It sets up Cloudflare inbound routing + Resend.com outbound sending for support@, billing@, no-reply@, and security@levqor.ai, then integrates them into your backend notifier.py.
+
+
+---
+
+You are the Replit AI Agent. Configure Levqor branded email using Cloudflare (free inbound routing) + Resend.com (outbound). Goal: create verified sending domain, set up four email addresses, and connect everything to notifier.py for alerts and receipts.
+
+OBJECTIVE
+- Inbound: Cloudflare Email Routing → forward to operator Gmail.
+- Outbound: Resend.com API → send from no-reply@levqor.ai.
+- Addresses: support@, billing@, no-reply@, security@.
+- One test send to confirm.
+
+TASKS
+1. ENV & DEP
+   - Ensure Python deps: `requests`, `json`, `os`.
+   - Add secrets:
+     RESEND_API_KEY=<your key from https://resend.com/api-keys>
+     RECEIVING_EMAIL=<your personal Gmail>
+   - Optional: CLOUDFLARE_API_TOKEN (if automation enabled; otherwise just output DNS).
+
+2. CLOUDFLARE ROUTING (manual DNS output)
+   - Generate rules:
+     ```
+     support@levqor.ai → ${RECEIVING_EMAIL}
+     billing@levqor.ai → ${RECEIVING_EMAIL}
+     security@levqor.ai → ${RECEIVING_EMAIL}
+     no-reply@levqor.ai → ${RECEIVING_EMAIL}
+     ```
+   - Output DNS MX + TXT instructions to docs/LEVQOR_EMAIL_DNS.txt:
+     ```
+     MX  levqor.ai  10 mx1.improvmx.com
+     MX  levqor.ai  20 mx2.improvmx.com
+     TXT  levqor.ai  v=spf1 include:spf.resend.com ~all
+     _dmarc TXT  v=DMARC1; p=quarantine; rua=mailto:dmarc@levqor.ai
+     resend._domainkey TXT  (fetch from Resend domain verification)
+     ```
+   - Include link to Cloudflare dashboard: https://dash.cloudflare.com/?to=/:account/:zone/email
+
+3. RESEND OUTBOUND
+   - Call Resend API to verify domain:
+     POST https://api.resend.com/domains with body:
+     `{ "name": "levqor.ai" }`
+   - Extract DKIM record → append to docs/LEVQOR_EMAIL_DNS.txt.
+   - Wait or prompt: “Add this TXT record in Cloudflare DNS, then rerun verify.”
+   - Verify domain via API:
+     GET https://api.resend.com/domains/levqor.ai
+     if `"status":"verified"` → continue.
+
+4. CREATE notifier.py (or update)
+   ```python
+   import os, requests
+   API_KEY=os.getenv("RESEND_API_KEY")
+   BASE="https://api.resend.com"
+   def send_email(to,subject,text,from_addr="no-reply@levqor.ai"):
+       headers={"Authorization":f"Bearer {API_KEY}","Content-Type":"application/json"}
+       data={"from":f"Levqor <{from_addr}>","to":[to],"subject":subject,"text":text}
+       r=requests.post(f"{BASE}/emails",json=data,headers=headers,timeout=10)
+       return r.status_code,r.text
+   def alert(subj,msg):
+       return send_email("support@levqor.ai",subj,msg)
+   def billing(subj,msg):
+       return send_email("billing@levqor.ai",subj,msg)
+   def security(subj,msg):
+       return send_email("security@levqor.ai",subj,msg)
+
+5. TEST SEND
+
+python3 - <<'PY'
+import notifier
+code,resp=notifier.alert("Levqor Email Test","This is an automated test from Levqor backend.")
+print("Response:",code,resp)
+PY
+
+Expect HTTP 200 → message appears in your Gmail inbox (via Cloudflare forwarding).
+
+
+
+6. LOGGING
+
+Save output to logs/email_test.log with timestamp and response code.
+
+
+
+7. OUTPUT SUMMARY
+
+Provider: Cloudflare (inbound) + Resend (outbound)
+From: no-reply@levqor.ai
+Support: support@levqor.ai
+Billing: billing@levqor.ai
+Security: security@levqor.ai
+DNS file: docs/LEVQOR_EMAIL_DNS.txt
+Test send: PASS/FAIL
+Next: Add DNS in Cloudflare if not yet verified.
+
+
+
+SAFETY
+
+Never print API keys.
+
+Verify DKIM before sending production mail.
+
+Fail closed if domain verification pending.
+
+Alert only on verified success.
+
+
+---
+
+After it runs:  
+1. Open `docs/LEVQOR_EMAIL_DNS.txt` → paste records into **Cloudflare DNS**.  
+2. Wait for verification (~5–10 min).  
+3. Run the “Test send” snippet again — you’ll receive an email from `no-reply@levqor.ai`.  
+
+Then your branded email system is fully live:  
+✅ free inbound via Cloudflare, ✅ free outbound via Resend, ✅ alerts wired into backend.

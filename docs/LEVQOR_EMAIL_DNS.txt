@@ -1,0 +1,61 @@
+╔═══════════════════════════════════════════════════════════╗
+║        LEVQOR EMAIL DNS RECORDS FOR CLOUDFLARE            ║
+╚═══════════════════════════════════════════════════════════╝
+
+Add these DNS records in Cloudflare for levqor.ai domain:
+
+STEP 1: RESEND OUTBOUND (Sending Emails)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SPF Record:
+Type:  TXT
+Name:  @
+Value: v=spf1 include:spf.resend.com ~all
+TTL:   Auto
+
+DKIM Record (get from Resend dashboard after domain verification):
+Type:  TXT
+Name:  resend._domainkey
+Value: <DKIM value from Resend - will be added after API call>
+TTL:   Auto
+
+
+STEP 2: CLOUDFLARE EMAIL ROUTING (Receiving Emails)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Go to: https://dash.cloudflare.com
+Select: levqor.ai domain
+Navigate to: Email → Email Routing
+Click: Enable Email Routing
+
+Cloudflare will auto-add MX records. Then add these forwarding rules:
+
+support@levqor.ai   → <YOUR_GMAIL>
+billing@levqor.ai   → <YOUR_GMAIL>
+security@levqor.ai  → <YOUR_GMAIL>
+no-reply@levqor.ai  → <YOUR_GMAIL>
+
+
+STEP 3: DMARC (Email Authentication)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Type:  TXT
+Name:  _dmarc
+Value: v=DMARC1; p=quarantine; rua=mailto:dmarc@levqor.ai; sp=quarantine
+TTL:   Auto
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NEXT STEPS:
+1. Get Resend API key: https://resend.com/api-keys
+2. Add RESEND_API_KEY to Replit Secrets
+3. Verify domain in Resend dashboard
+4. Add DKIM record from Resend to Cloudflare
+5. Enable Email Routing in Cloudflare
+6. Test send with: python3 test_email.py
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VERIFICATION STATUS: PENDING
+Last updated: Not yet configured
