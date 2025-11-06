@@ -107,6 +107,15 @@ def _log_in():
 def add_headers(r):
     if request.path == "/billing/webhook":
         return r
+    
+    if request.path.startswith("/public/docs/") or request.path.startswith("/public/blog/"):
+        r.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+        r.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        r.headers["X-Content-Type-Options"] = "nosniff"
+        r.headers["X-Frame-Options"] = "DENY"
+        r.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return r
+    
     r.headers["Access-Control-Allow-Origin"] = "https://levqor.ai"
     r.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS,PATCH"
     r.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Api-Key"

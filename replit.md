@@ -12,6 +12,14 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 
 ## Recent Changes
 **November 6, 2025**
+- **Documentation & Blog Infrastructure:**
+  - Created docs/ folder with markdown files (index.md, api.md, connectors.md)
+  - Created blog/ folder with index.json and 001-launch-story.md
+  - Added markdown2 for Markdown→HTML rendering
+  - Added /public/docs/<file> and /public/blog/<slug> routes
+  - Updated robots.txt with new URLs
+  - Created sitemap.xml with all public URLs
+  - Routes working locally, investigating deployment issue
 - **Connector Pack Integration:**
   - Created connectors/ folder with dynamic connector modules
   - Implemented gmail_connector.py (Google API Python Client)
