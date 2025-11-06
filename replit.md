@@ -100,3 +100,11 @@ The application is deployed to Replit Autoscale, utilizing Gunicorn as the produ
   - Integrated automatic tracking in all CTA buttons, page views, newsletter signups
   - Privacy-focused design: email addresses hashed before storage
   - Tracks conversion rate, CTR, and daily event breakdowns
+
+- **Domain Cutover Preparation:**
+  - Configured CORS for multiple origins: `app.levqor.ai`, `levqor-web.vercel.app`, `levqor.ai`
+  - Added health check endpoints: `/ready` and `/status` (alongside existing `/health`)
+  - Updated `public/sitemap.xml` with frontend domain (app.levqor.ai) and key pages
+  - Created DNS configuration guide: `docs/DNS_BACKEND.txt` with CNAME/A record instructions
+  - Created domain prep script: `scripts/domain_prep.sh` for CORS logging
+  - All endpoints tested and operational with proper CORS headers
