@@ -69,6 +69,11 @@ def get_db():
             _db_connection.commit()
         except sqlite3.OperationalError:
             pass
+        try:
+            _db_connection.execute("ALTER TABLE users ADD COLUMN ref_code TEXT")
+            _db_connection.commit()
+        except sqlite3.OperationalError:
+            pass
         _db_connection.execute("""
           CREATE TABLE IF NOT EXISTS metrics(
             id TEXT PRIMARY KEY,
@@ -81,6 +86,36 @@ def get_db():
         """)
         _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_metrics_type ON metrics(type)")
         _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp)")
+        
+        _db_connection.execute("""
+          CREATE TABLE IF NOT EXISTS referrals(
+            id TEXT PRIMARY KEY,
+            referrer_user_id TEXT NOT NULL,
+            referee_email TEXT NOT NULL,
+            referee_user_id TEXT,
+            created_at REAL NOT NULL,
+            credited INTEGER DEFAULT 0,
+            utm_source TEXT,
+            utm_medium TEXT,
+            utm_campaign TEXT
+          )
+        """)
+        _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_user_id)")
+        _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referee_email ON referrals(referee_email)")
+        
+        _db_connection.execute("""
+          CREATE TABLE IF NOT EXISTS usage_daily(
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            day TEXT NOT NULL,
+            jobs_run INTEGER DEFAULT 0,
+            cost_saving REAL DEFAULT 0,
+            created_at REAL NOT NULL,
+            UNIQUE(user_id, day)
+          )
+        """)
+        _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_usage_user_day ON usage_daily(user_id, day)")
+        
         _db_connection.execute("PRAGMA journal_mode=WAL")
         _db_connection.execute("PRAGMA synchronous=NORMAL")
         _db_connection.commit()
@@ -114,6 +149,103 @@ def throttle():
     dq.append(now)
     _ALL_HITS.append(now)
     return None
+
+import jwt
+import requests as http_requests
+import hashlib
+from datetime import datetime, timedelta
+from functools import wraps
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+JWT_AUDIENCE = os.environ.get("JWT_AUDIENCE", "supabase")
+
+_jwks_cache = None
+_jwks_cache_time = 0
+
+def get_jwks():
+    global _jwks_cache, _jwks_cache_time
+    now = time()
+    if _jwks_cache and now - _jwks_cache_time < 3600:
+        return _jwks_cache
+    
+    if not SUPABASE_URL:
+        return None
+    
+    try:
+        url = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+        resp = http_requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            _jwks_cache = resp.json()
+            _jwks_cache_time = now
+            return _jwks_cache
+    except Exception as e:
+        log.warning(f"Failed to fetch JWKS: {e}")
+    return None
+
+def verify_jwt(token):
+    try:
+        jwks = get_jwks()
+        if not jwks:
+            return None
+        
+        header = jwt.get_unverified_header(token)
+        key_id = header.get("kid")
+        
+        public_key = None
+        for key in jwks.get("keys", []):
+            if key.get("kid") == key_id:
+                public_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(key))
+                break
+        
+        if not public_key:
+            return None
+        
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=["RS256"],
+            audience=JWT_AUDIENCE,
+            options={"verify_exp": True}
+        )
+        
+        return payload
+    except jwt.ExpiredSignatureError:
+        log.warning("JWT expired")
+        return None
+    except Exception as e:
+        log.warning(f"JWT verification failed: {e}")
+        return None
+
+def require_user():
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None, (jsonify({"error": "unauthorized"}), 401)
+    
+    token = auth_header[7:]
+    payload = verify_jwt(token)
+    
+    if not payload:
+        return None, (jsonify({"error": "invalid_token"}), 401)
+    
+    user_id = payload.get("sub")
+    email = payload.get("email")
+    
+    if not user_id or not email:
+        return None, (jsonify({"error": "invalid_token"}), 401)
+    
+    db = get_db()
+    existing = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    
+    if not existing:
+        now = time()
+        db.execute(
+            "INSERT INTO users (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (user_id, email, now, now)
+        )
+        db.commit()
+    
+    return {"user_id": user_id, "email": email}, None
 
 @app.before_request
 def _log_in():
@@ -1488,6 +1620,257 @@ The Levqor Team
             )
     except Exception as e:
         log.exception(f"Error handling failed payment: {e}")
+
+@app.get("/api/v1/me/subscription")
+def get_user_subscription():
+    user, error = require_user()
+    if error:
+        return error
+    
+    db = get_db()
+    user_data = db.execute("SELECT * FROM users WHERE id = ?", (user["user_id"],)).fetchone()
+    
+    if not user_data:
+        return jsonify({"plan": "free", "status": "active", "renews_at": None}), 200
+    
+    return jsonify({
+        "plan": "free",
+        "status": "active",
+        "renews_at": None,
+        "credits_remaining": user_data[6] if len(user_data) > 6 else 50
+    }), 200
+
+@app.get("/api/v1/me/usage")
+def get_user_usage():
+    user, error = require_user()
+    if error:
+        return error
+    
+    db = get_db()
+    today = datetime.now().strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
+    
+    rows = db.execute("""
+        SELECT day, jobs_run, cost_saving
+        FROM usage_daily
+        WHERE user_id = ? AND day >= ?
+        ORDER BY day ASC
+    """, (user["user_id"], start_date)).fetchall()
+    
+    usage = []
+    for row in rows:
+        usage.append({
+            "day": row[0],
+            "jobs_run": row[1],
+            "cost_saving": row[2]
+        })
+    
+    return jsonify({"usage": usage}), 200
+
+@app.get("/api/v1/me/referral-code")
+def get_referral_code():
+    user, error = require_user()
+    if error:
+        return error
+    
+    db = get_db()
+    user_data = db.execute("SELECT ref_code FROM users WHERE id = ?", (user["user_id"],)).fetchone()
+    
+    ref_code = user_data[0] if user_data and user_data[0] else None
+    
+    if not ref_code:
+        ref_code = hashlib.sha256(user["user_id"].encode()).hexdigest()[:8]
+        db.execute("UPDATE users SET ref_code = ? WHERE id = ?", (ref_code, user["user_id"]))
+        db.commit()
+    
+    return jsonify({"ref_code": ref_code}), 200
+
+@app.post("/api/v1/referrals/capture")
+def capture_referral():
+    body = request.get_json(silent=True) or {}
+    ref = body.get("ref", "").strip()
+    email = body.get("email", "").strip()
+    
+    if not ref or not email:
+        return jsonify({"error": "ref and email required"}), 400
+    
+    try:
+        db = get_db()
+        
+        referrer = db.execute("SELECT id FROM users WHERE ref_code = ?", (ref,)).fetchone()
+        
+        if not referrer:
+            log.warning(f"Referral code not found: {ref}")
+            return jsonify({"status": "ok"}), 200
+        
+        referrer_id = referrer[0]
+        
+        existing = db.execute(
+            "SELECT id FROM referrals WHERE referrer_user_id = ? AND referee_email = ?",
+            (referrer_id, email)
+        ).fetchone()
+        
+        if existing:
+            return jsonify({"status": "already_captured"}), 200
+        
+        ref_id = uuid4().hex
+        now = time()
+        
+        db.execute("""
+            INSERT INTO referrals (id, referrer_user_id, referee_email, created_at, utm_source, utm_medium, utm_campaign)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            ref_id,
+            referrer_id,
+            email,
+            now,
+            body.get("utm_source"),
+            body.get("utm_medium"),
+            body.get("utm_campaign")
+        ))
+        db.commit()
+        
+        log.info(f"Referral captured: referrer={referrer_id}, referee={email}")
+        
+        return jsonify({"status": "ok", "referral_id": ref_id}), 200
+        
+    except Exception as e:
+        log.exception("Referral capture error")
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/api/v1/referrals/status")
+def get_referral_status():
+    user, error = require_user()
+    if error:
+        return error
+    
+    db = get_db()
+    
+    total = db.execute(
+        "SELECT COUNT(*) FROM referrals WHERE referrer_user_id = ?",
+        (user["user_id"],)
+    ).fetchone()[0]
+    
+    credited = db.execute(
+        "SELECT COUNT(*) FROM referrals WHERE referrer_user_id = ? AND credited = 1",
+        (user["user_id"],)
+    ).fetchone()[0]
+    
+    return jsonify({
+        "total_referrals": total,
+        "credited_referrals": credited,
+        "pending_referrals": total - credited
+    }), 200
+
+@app.post("/api/v1/rewards/credit")
+def process_rewards():
+    governance_token = request.headers.get("X-Governance-Token")
+    if governance_token != os.environ.get("GOVERNANCE_TOKEN"):
+        return jsonify({"error": "forbidden"}), 403
+    
+    body = request.get_json(silent=True) or {}
+    user_id = body.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+    
+    try:
+        db = get_db()
+        
+        completed_referrals = db.execute("""
+            SELECT COUNT(DISTINCT r.id)
+            FROM referrals r
+            JOIN users u ON r.referee_email = u.email
+            WHERE r.referrer_user_id = ? AND r.credited = 0 AND u.credits_remaining > 0
+        """, (user_id,)).fetchone()[0]
+        
+        if completed_referrals >= 2:
+            db.execute(
+                "UPDATE users SET credits_remaining = credits_remaining + 60 WHERE id = ?",
+                (user_id,)
+            )
+            
+            db.execute(
+                "UPDATE referrals SET credited = 1 WHERE referrer_user_id = ? AND credited = 0",
+                (user_id,)
+            )
+            
+            db.commit()
+            
+            log.info(f"Credited {user_id} with 60 credits for {completed_referrals} referrals")
+            
+            return jsonify({"credited": True, "credits_awarded": 60}), 200
+        
+        return jsonify({"credited": False, "reason": "insufficient_referrals"}), 200
+        
+    except Exception as e:
+        log.exception("Reward processing error")
+        return jsonify({"error": str(e)}), 500
+
+@app.post("/api/v1/events")
+def track_event():
+    throttle_result = throttle()
+    if throttle_result:
+        return throttle_result
+    
+    body = request.get_json(silent=True) or {}
+    event_type = body.get("type", "").strip()
+    meta = body.get("meta", {})
+    
+    if not event_type:
+        return jsonify({"error": "type required"}), 400
+    
+    try:
+        os.makedirs("data/metrics", exist_ok=True)
+        
+        with open("data/metrics/events.jsonl", "a") as f:
+            event = {
+                "type": event_type,
+                "meta": meta,
+                "timestamp": time(),
+                "ip": request.headers.get("X-Forwarded-For", request.remote_addr)
+            }
+            f.write(json.dumps(event) + "\n")
+        
+        return jsonify({"status": "ok"}), 200
+        
+    except Exception as e:
+        log.exception("Event tracking error")
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/api/v1/metrics/summary")
+def get_metrics_summary():
+    try:
+        db = get_db()
+        now = time()
+        seven_days_ago = now - (7 * 24 * 3600)
+        
+        signups_7d = db.execute(
+            "SELECT COUNT(*) FROM users WHERE created_at >= ?",
+            (seven_days_ago,)
+        ).fetchone()[0]
+        
+        total_users = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        
+        conversions_7d = db.execute(
+            "SELECT COUNT(*) FROM users WHERE created_at >= ? AND credits_remaining != 50",
+            (seven_days_ago,)
+        ).fetchone()[0]
+        
+        conversion_rate = (conversions_7d / signups_7d * 100) if signups_7d > 0 else 0
+        
+        return jsonify({
+            "signups_7d": signups_7d,
+            "conversions_7d": conversions_7d,
+            "total_users": total_users,
+            "conversion_rate": round(conversion_rate, 2),
+            "mrr_estimate": conversions_7d * 9,
+            "arpu_estimate": round(conversions_7d * 9 / total_users, 2) if total_users > 0 else 0
+        }), 200
+        
+    except Exception as e:
+        log.exception("Metrics summary error")
+        return jsonify({"error": str(e)}), 500
 
 def run_backup_job():
     """
