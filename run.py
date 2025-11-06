@@ -19,6 +19,24 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 log = logging.getLogger("levqor")
 backup_log = logging.getLogger("levqor.backup")
 
+SENTRY_DSN = os.environ.get("SENTRY_DSN")
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+        
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[FlaskIntegration()],
+            traces_sample_rate=0.1,
+            profiles_sample_rate=0.1,
+            environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+            release=f"levqor@{os.environ.get('BUILD_ID', 'dev')}"
+        )
+        log.info("✅ Sentry error tracking initialized")
+    except ImportError:
+        log.warning("⚠️  SENTRY_DSN set but sentry-sdk not installed. Run: pip install sentry-sdk[flask]")
+
 app = Flask(__name__, 
     static_folder='public',
     static_url_path='/public')
