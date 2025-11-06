@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Levqor Status</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h1 { font-size: 28px; margin-bottom: 10px; }
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        .status.operational {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.degraded {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.outage {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        .services {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .service {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .service:last-child { border-bottom: none; }
+        .service-name { font-weight: 500; }
+        .service-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+        }
+        .service-status.up {
+            background: #d4edda;
+            color: #155724;
+        }
+        .incidents {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .incident {
+            padding: 20px;
+            border-left: 4px solid #ffc107;
+            background: #fffbf0;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        .incident-title { font-weight: 600; margin-bottom: 8px; }
+        .incident-time { color: #666; font-size: 14px; margin-bottom: 8px; }
+        .incident-desc { color: #333; line-height: 1.6; }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Levqor System Status</h1>
+            <p style="color: #666; margin-top: 10px;">Real-time status and incident history</p>
+            <div style="margin-top: 20px;">
+                <span class="status operational">
+                    <span class="indicator"></span>
+                    All Systems Operational
+                </span>
+            </div>
+        </div>
+
+        <div class="services">
+            <h2 style="margin-bottom: 20px;">System Components</h2>
+            <div class="service">
+                <span class="service-name">API (api.levqor.ai)</span>
+                <span class="service-status up">Operational</span>
+            </div>
+            <div class="service">
+                <span class="service-name">Dashboard (levqor.ai)</span>
+                <span class="service-status up">Operational</span>
+            </div>
+            <div class="service">
+                <span class="service-name">Workflow Builder</span>
+                <span class="service-status up">Operational</span>
+            </div>
+            <div class="service">
+                <span class="service-name">Email Delivery</span>
+                <span class="service-status up">Operational</span>
+            </div>
+            <div class="service">
+                <span class="service-name">Database</span>
+                <span class="service-status up">Operational</span>
+            </div>
+        </div>
+
+        <div class="incidents">
+            <h2 style="margin-bottom: 20px;">Recent Incidents</h2>
+            <p style="color: #666;">No incidents in the last 30 days.</p>
+        </div>
+
+        <div class="footer">
+            <p>Status updated every 60 seconds</p>
+            <p style="margin-top: 8px;">
+                Subscribe to updates: <a href="mailto:status@levqor.ai">status@levqor.ai</a>
+            </p>
+            <p style="margin-top: 8px;">
+                Version: 1.0.0 | Last deploy: 2025-11-06
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Auto-refresh every 60 seconds
+        setTimeout(() => location.reload(), 60000);
+    </script>
+</body>
+</html>

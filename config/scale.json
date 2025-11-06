@@ -1,0 +1,43 @@
+{
+  "autoscaling": {
+    "platform": "replit",
+    "cold_start_detection": {
+      "enabled": true,
+      "threshold_ms": 3000,
+      "fallback_worker": {
+        "type": "local_pool",
+        "workers": 2,
+        "queue": "redis://localhost:6379"
+      }
+    },
+    "health_monitoring": {
+      "uptimerobot": {
+        "enabled": false,
+        "monitors": [
+          {
+            "name": "Levqor API Health",
+            "url": "https://api.levqor.ai/health",
+            "interval": 300,
+            "alert_contacts": ["admin@levqor.ai"]
+          },
+          {
+            "name": "Levqor Status Check",
+            "url": "https://api.levqor.ai/status",
+            "interval": 600
+          }
+        ]
+      },
+      "internal_ping": {
+        "enabled": true,
+        "interval_seconds": 60,
+        "endpoints": ["/health", "/status", "/ready"]
+      }
+    }
+  },
+  "deployment": {
+    "platform": "replit_autoscale",
+    "workers": "${GUNICORN_WORKERS:-2}",
+    "threads_per_worker": "${GUNICORN_THREADS:-4}",
+    "timeout": "${GUNICORN_TIMEOUT:-30}"
+  }
+}

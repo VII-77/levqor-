@@ -1,0 +1,33 @@
+{
+  "error_tracking": {
+    "sentry": {
+      "enabled": false,
+      "dsn_env": "SENTRY_DSN",
+      "environment": "production",
+      "traces_sample_rate": 0.1,
+      "profiles_sample_rate": 0.1
+    }
+  },
+  "uptime_monitoring": {
+    "betterstack": {
+      "enabled": false,
+      "api_key_env": "BETTERSTACK_API_KEY",
+      "heartbeat_url": "https://uptime.betterstack.com/api/v1/heartbeat/HEARTBEAT_ID"
+    },
+    "internal": {
+      "enabled": true,
+      "ping_interval": 60,
+      "failure_threshold": 3
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "structured": true,
+    "destination": "stdout",
+    "rotation": {
+      "enabled": true,
+      "max_bytes": 10485760,
+      "backup_count": 5
+    }
+  }
+}
