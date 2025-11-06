@@ -11,6 +11,20 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 - Legal documentation and FAQ pages
 
 ## Recent Changes
+**November 6, 2025**
+- **Email System Integration:**
+  - Created notifier.py module with Resend.com integration
+  - Configured branded email addresses: support@, billing@, no-reply@, security@levqor.ai
+  - Added email logging to logs/email_test.log
+  - Created setup and verification scripts (setup_resend_domain.py, verify_resend.py, test_email.py)
+  - DNS records template ready for Cloudflare
+  - Resend + Cloudflare Email Routing setup documented
+- **Deployment:**
+  - Deployed to Replit Autoscale at https://levqor-backend.replit.app
+  - Custom domain DNS configured (api.levqor.ai)
+  - Production API keys generated and configured
+  - BUILD_ID environment variable set
+
 **November 5, 2025**
 - Initial setup of Levqor backend
 - Created Flask application with all core endpoints
@@ -53,9 +67,18 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 
 ### Backend Structure
 - `run.py` - Main Flask application with API endpoints
+- `notifier.py` - Email notification module (Resend integration)
 - `requirements.txt` - Python dependencies (Flask 3.0.0, jsonschema 4.22.0, requests 2.32.5, gunicorn 23.0.0)
 - `.env.example` - Environment variable template
 - `API_KEY_ROTATION.md` - API key rotation procedure documentation
+
+### Email System
+- `notifier.py` - Email module with Resend API integration
+- `test_email.py` - Test email sending functionality
+- `setup_resend_domain.py` - Add domain to Resend and get DNS records
+- `verify_resend.py` - Check domain verification status
+- `docs/LEVQOR_EMAIL_DNS.txt` - DNS records for Cloudflare setup
+- `logs/email_test.log` - Email send attempt logs
 
 ### Public Pages
 - `public/legal/privacy.html` - Privacy policy
@@ -185,7 +208,8 @@ Create consistent backups of the SQLite database:
   - Global error handler to prevent information leakage
 
 ### Current State
-- **Production-Ready**: All hardening deltas completed and architect-approved
+- **Deployed**: Live at https://levqor-backend.replit.app
+- **Custom Domain**: api.levqor.ai (DNS configured, awaiting verification)
 - Production server (Gunicorn) running on port 5000 with 2 workers, 4 threads, 30s timeout
 - In-memory job store (JOBS dictionary)
 - SQLite database for user profiles (levqor.db) with WAL mode enabled
@@ -203,16 +227,26 @@ Create consistent backups of the SQLite database:
 - API key rotation support with dual-set validation
 - OpenAPI 3.0 documentation at /public/openapi.json
 - Well-known files (security.txt, robots.txt)
-- Ready for production deployment
+- **Email System**: Resend + Cloudflare Email Routing configured (pending domain verification)
+  - Branded addresses: support@, billing@, no-reply@, security@levqor.ai
+  - Secrets configured: RESEND_API_KEY, RECEIVING_EMAIL
 
 ## Next Phase
-- Replace in-memory job store with PostgreSQL or Redis
-- Implement real job orchestration queue (Celery, RQ, or similar)
-- Implement callback URL notifications for job completion
-- Add cost tracking and guardrails enforcement
-- Add API key management endpoints (create, revoke, list)
-- Implement usage analytics and monitoring
-- Deploy to production environment with API_KEYS configured
+- **Email System Completion:**
+  1. Update RESEND_API_KEY to "Full Access" permission
+  2. Run: python3 setup_resend_domain.py
+  3. Add DNS records to Cloudflare
+  4. Verify domain and test email sending
+- **Domain Verification:**
+  - Complete api.levqor.ai verification in Replit
+  - Test production endpoints via custom domain
+- **Future Enhancements:**
+  - Replace in-memory job store with PostgreSQL or Redis
+  - Implement real job orchestration queue (Celery, RQ, or similar)
+  - Implement callback URL notifications for job completion
+  - Add cost tracking and guardrails enforcement
+  - Add API key management endpoints (create, revoke, list)
+  - Implement usage analytics and monitoring
 
 ## User Preferences
 None documented yet.
