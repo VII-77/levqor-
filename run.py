@@ -8,6 +8,8 @@ import json
 import os
 import logging
 import sys
+import stripe
+import notifier
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 log = logging.getLogger("levqor")
@@ -15,6 +17,8 @@ log = logging.getLogger("levqor")
 app = Flask(__name__, 
     static_folder='public',
     static_url_path='/public')
+
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_CONTENT_LENGTH", 512 * 1024))
 
@@ -96,11 +100,13 @@ def _log_in():
 
 @app.after_request
 def add_headers(r):
+    if request.path == "/billing/webhook":
+        return r
     r.headers["Access-Control-Allow-Origin"] = "https://levqor.ai"
     r.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS,PATCH"
     r.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Api-Key"
     r.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
-    r.headers["Content-Security-Policy"] = "default-src 'none'; connect-src https://levqor.ai https://api.levqor.ai; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    r.headers["Content-Security-Policy"] = "default-src 'none'; connect-src https://levqor.ai https://api.levqor.ai https://checkout.stripe.com https://js.stripe.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
     r.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     r.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
     r.headers["X-Content-Type-Options"] = "nosniff"
@@ -392,6 +398,166 @@ OPENAPI = {
 @app.get("/public/openapi.json")
 def openapi():
     return jsonify(OPENAPI)
+
+@app.post("/billing/create-checkout-session")
+def create_checkout_session():
+    rate_check = throttle()
+    if rate_check:
+        return rate_check
+    
+    try:
+        replit_domain = os.environ.get("REPLIT_DEV_DOMAIN")
+        if not replit_domain:
+            domains = os.environ.get("REPLIT_DOMAINS", "")
+            replit_domain = domains.split(",")[0] if domains else "levqor-backend.replit.app"
+        
+        body = request.get_json(silent=True) or {}
+        price_id = body.get("price_id")
+        user_email = body.get("email")
+        user_id = body.get("user_id")
+        
+        session_params = {
+            "line_items": [{
+                "price": price_id or "price_1234567890",
+                "quantity": 1,
+            }],
+            "mode": "payment",
+            "success_url": f"https://{replit_domain}/success?session_id={{CHECKOUT_SESSION_ID}}",
+            "cancel_url": f"https://{replit_domain}/cancel",
+        }
+        
+        if user_email:
+            session_params["customer_email"] = user_email
+        if user_id:
+            session_params["client_reference_id"] = user_id
+            session_params["metadata"] = {"user_id": user_id}
+        
+        checkout_session = stripe.checkout.Session.create(**session_params)
+        
+        return jsonify({"sessionId": checkout_session.id, "url": checkout_session.url}), 200
+        
+    except Exception as e:
+        log.exception("Stripe checkout error")
+        return jsonify({"error": str(e)}), 400
+
+@app.post("/billing/webhook")
+def stripe_webhook():
+    payload = request.data
+    sig_header = request.headers.get("Stripe-Signature")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+    
+    if webhook_secret:
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, webhook_secret
+            )
+        except ValueError:
+            log.warning("Invalid Stripe webhook payload")
+            return jsonify({"error": "invalid_payload"}), 400
+        except stripe.error.SignatureVerificationError:
+            log.warning("Invalid Stripe webhook signature")
+            return jsonify({"error": "invalid_signature"}), 400
+    else:
+        event = json.loads(payload)
+    
+    event_type = event.get("type")
+    log.info(f"Stripe webhook received: {event_type}")
+    
+    if event_type == "checkout.session.completed":
+        session = event["data"]["object"]
+        handle_successful_payment(session)
+    elif event_type == "checkout.session.async_payment_succeeded":
+        session = event["data"]["object"]
+        handle_successful_payment(session)
+    elif event_type == "checkout.session.async_payment_failed":
+        session = event["data"]["object"]
+        handle_failed_payment(session)
+    
+    return jsonify({"received": True}), 200
+
+def handle_successful_payment(session):
+    """Process successful payment and send confirmation email"""
+    try:
+        user_id = session.get("client_reference_id")
+        email = session.get("customer_details", {}).get("email") or session.get("customer_email")
+        amount_total = session.get("amount_total", 0)
+        session_id = session.get("id")
+        
+        amount_display = f"${amount_total / 100:.2f}" if amount_total else "N/A"
+        
+        log.info(f"Payment successful: session={session_id}, user={user_id}, email={email}, amount={amount_display}")
+        
+        if email:
+            subject = "Payment Confirmation - Levqor"
+            message = f"""Thank you for your payment!
+
+Payment Details:
+- Amount: {amount_display}
+- Session ID: {session_id}
+- User ID: {user_id or 'N/A'}
+
+Your payment has been processed successfully.
+
+If you have any questions, contact us at support@levqor.ai
+
+Best regards,
+The Levqor Team
+"""
+            
+            status, response = notifier.send_email(
+                to=email,
+                subject=subject,
+                text=message,
+                from_addr="billing@levqor.ai"
+            )
+            log.info(f"Payment confirmation email sent: status={status}")
+        
+        if user_id:
+            user = fetch_user_by_id(user_id)
+            if user:
+                meta = user.get("meta", {})
+                meta["last_payment"] = {
+                    "session_id": session_id,
+                    "amount": amount_total,
+                    "timestamp": time()
+                }
+                get_db().execute(
+                    "UPDATE users SET meta=?, updated_at=? WHERE id=?",
+                    (json.dumps(meta), time(), user_id)
+                )
+                get_db().commit()
+                log.info(f"User {user_id} payment recorded in database")
+    
+    except Exception as e:
+        log.exception(f"Error handling successful payment: {e}")
+
+def handle_failed_payment(session):
+    """Handle failed payment"""
+    try:
+        email = session.get("customer_details", {}).get("email") or session.get("customer_email")
+        session_id = session.get("id")
+        
+        log.warning(f"Payment failed: session={session_id}, email={email}")
+        
+        if email:
+            subject = "Payment Failed - Levqor"
+            message = f"""Your payment could not be processed.
+
+Session ID: {session_id}
+
+Please try again or contact support@levqor.ai for assistance.
+
+Best regards,
+The Levqor Team
+"""
+            notifier.send_email(
+                to=email,
+                subject=subject,
+                text=message,
+                from_addr="billing@levqor.ai"
+            )
+    except Exception as e:
+        log.exception(f"Error handling failed payment: {e}")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
