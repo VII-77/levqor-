@@ -1,0 +1,51 @@
+D1 STRIPE TEST - CHECKOUT SESSION CREATED
+==========================================
+
+Status: AWAITING PAYMENT
+
+Checkout Session Created:
+- ID: cs_live_a1UyzX1JvPeT5KjbRmwD880btr7ZEBrWNJg88u6Q8vFBD9M4s9Jo7BM7C1
+- Amount: $1.00 USD
+- Status: unpaid
+- Mode: LIVE (real payment required)
+
+Checkout URL:
+https://checkout.stripe.com/c/pay/cs_live_a1UyzX1JvPeT5KjbRmwD880btr7ZEBrWNJg88u6Q8vFBD9M4s9Jo7BM7C1#fidnandhYHdWcXxpYCc%2FJ2FgY2RwaXEnKSdkdWxOYHwnPyd1blppbHNgWjA0VkZLbWRHS3JhZkFKQzw8TURENGFKUDRnXFVJVUdBalFhd1NJUm9OdWJzYFN9UklTcmBhQ0BsQjBSRkd0NVJsQmw3M1NEUmdoVXZSNHNXSmtIUm5NS383NTVtUEk9QkM9MCcpJ2N3amhWYHdzYHcnP3F3cGApJ2dkZm5id2pwa2FGamlqdyc%2FJyYwNzBjMmMnKSdpZHxqcHFRfHVgJz8ndmxrYmlgWmxxYGgnKSdna2RnaWBVaWRmYG1qaWFgd3YnP3F3cGB4JSUl
+
+Next Steps to Complete D1:
+1. Open the checkout URL above
+2. Enter real payment card details
+3. Complete $1 payment
+4. Run refund script (see below)
+
+Refund Command (after payment succeeds):
+python3 << 'SCRIPT'
+import stripe
+import os
+import json
+
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+
+# Get the charge from the session
+session = stripe.checkout.Session.retrieve("cs_live_a1UyzX1JvPeT5KjbRmwD880btr7ZEBrWNJg88u6Q8vFBD9M4s9Jo7BM7C1")
+charge_id = session.payment_intent
+
+# Refund the charge
+refund = stripe.Refund.create(payment_intent=charge_id)
+print(f"Refund created: {refund.id}")
+print(f"Amount: ${refund.amount/100:.2f}")
+print(f"Status: {refund.status}")
+
+# Save evidence
+with open('data/evidence/refund.jsonl', 'a') as f:
+    f.write(json.dumps({
+        "refund_id": refund.id,
+        "charge_id": charge_id,
+        "amount": refund.amount / 100,
+        "status": refund.status
+    }) + '\n')
+SCRIPT
+
+Evidence Files:
+- Checkout session: data/evidence/charge.jsonl
+- Refund (after payment): data/evidence/refund.jsonl

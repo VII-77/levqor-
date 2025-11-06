@@ -1,0 +1,33 @@
+{
+  "gates": {
+    "G1": "partial",
+    "G3": "partial",
+    "G6": "pass",
+    "G8": "partial"
+  },
+  "evidence_paths": {
+    "d1_checkout": "data/evidence/charge.jsonl",
+    "d1_instructions": "data/evidence/d1_checkout_ready.txt",
+    "d1_status": "data/evidence/d1_stripe_test_failure.jsonl",
+    "d2_landing": "data/evidence/d2_landing_patch.jsonl",
+    "d2_deploy": "data/evidence/d2_deployment_instructions.txt",
+    "d3_monitors": "data/evidence/d3_uptime_monitors.jsonl",
+    "d3_cron": "data/evidence/d3_cron_lines.txt",
+    "d3_script": "data/evidence/d3_uptime_monitoring.sh"
+  },
+  "deploy_url_front": "MANUAL_DEPLOYMENT_REQUIRED",
+  "notes": [
+    "D1 PARTIAL: Stripe configured, checkout session created, awaiting real card payment",
+    "D2 PARTIAL: Landing updated & built successfully, Vercel deployment requires manual action",
+    "D3 PASS: Uptime cron scripts created for 5-min monitoring",
+    "Checkout URL ready for $1 payment test",
+    "Frontend ready for deployment at levqor-web/ directory"
+  ],
+  "timestamp": "2025-11-06T17:12:00Z",
+  "summary": {
+    "d1_stripe_test": "PARTIAL - Checkout created, awaiting payment",
+    "d2_landing_patch": "PARTIAL - Code ready, deployment manual",
+    "d3_uptime": "PASS - Cron scripts created"
+  },
+  "checkout_url": "https://checkout.stripe.com/c/pay/cs_live_a1UyzX1JvPeT5KjbRmwD880btr7ZEBrWNJg88u6Q8vFBD9M4s9Jo7BM7C1#fidnandhYHdWcXxpYCc%2FJ2FgY2RwaXEnKSdkdWxOYHwnPyd1blppbHNgWjA0VkZLbWRHS3JhZkFKQzw8TURENGFKUDRnXFVJVUdBalFhd1NJUm9OdWJzYFN9UklTcmBhQ0BsQjBSRkd0NVJsQmw3M1NEUmdoVXZSNHNXSmtIUm5NS383NTVtUEk9QkM9MCcpJ2N3amhWYHdzYHcnP3F3cGApJ2dkZm5id2pwa2FGamlqdyc%2FJyYwNzBjMmMnKSdpZHxqcHFRfHVgJz8ndmxrYmlgWmxxYGgnKSdna2RnaWBVaWRmYG1qaWFgd3YnP3F3cGB4JSUl"
+}
