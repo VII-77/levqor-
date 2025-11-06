@@ -1,0 +1,46 @@
+{
+  "headline": "Production-Ready Job Orchestration for AI Automation",
+  "subheadline": "Stop rebuilding infrastructure. Start building AI features.",
+  "cta_primary": "Get API Access",
+  "cta_secondary": "View Documentation",
+  "usp": [
+    {
+      "title": "Ship Faster",
+      "description": "Pre-built auth, billing, connectors, and monitoring. Launch in days, not months.",
+      "icon": "rocket"
+    },
+    {
+      "title": "Enterprise Security",
+      "description": "API key rotation, rate limiting, HSTS, CSP headers. Production-grade from day one.",
+      "icon": "shield"
+    },
+    {
+      "title": "Scale Effortlessly",
+      "description": "Global edge network, automated backups, 99.99% uptime. Built to handle millions of jobs.",
+      "icon": "chart"
+    },
+    {
+      "title": "Connect Everything",
+      "description": "Gmail, Notion, Slack, Telegram connectors included. Add more in minutes.",
+      "icon": "plug"
+    }
+  ],
+  "value_props": {
+    "developers": "Stop wasting weeks on boilerplate. Focus on your AI logic, not infrastructure.",
+    "startups": "Launch your MVP faster. Get to market before your competition.",
+    "enterprises": "Enterprise-grade reliability without enterprise complexity."
+  },
+  "social_proof": {
+    "companies_using": "50+",
+    "jobs_processed": "1M+",
+    "uptime": "99.99%",
+    "countries": "25+"
+  },
+  "pricing_tease": "Starting at $29/month. Scale as you grow.",
+  "trust_signals": [
+    "SOC 2 Type II compliant",
+    "GDPR compliant",
+    "99.99% SLA",
+    "24/7 support"
+  ]
+}
