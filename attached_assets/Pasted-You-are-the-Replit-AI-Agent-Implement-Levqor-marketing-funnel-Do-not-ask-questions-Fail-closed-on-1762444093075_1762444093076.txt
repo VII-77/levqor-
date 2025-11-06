@@ -1,0 +1,72 @@
+You are the Replit AI Agent. Implement Levqor marketing funnel. Do not ask questions. Fail closed on any error and print the failing step.
+
+GOAL
+Public marketing assets: landing hooks, testimonials, SEO/OG, analytics, referral capture, newsletter signup, and a small KPI API bridge.
+
+ENV (read only; do not print secrets)
+- NEXT_PUBLIC_APP_NAME=Levqor
+- NEXT_PUBLIC_PLAUSIBLE_DOMAIN=(optional)
+- NEXT_PUBLIC_HEAP_ID=(optional)
+- NEXT_PUBLIC_BACKEND_SUMMARY=https://<backend>/api/v1/marketing/summary
+- RESEND_API_KEY=(for newsletter double-opt-in via backend endpoint if present)
+
+STEPS
+1) CONTENT
+- Create marketing/landing_snippets.json with: headline, subhead, 3 USPs, primary_cta="Start free trial", secondary_cta="See pricing".
+- Create marketing/testimonials.json with 3 short quotes + names/titles.
+- Create public/og-image.jpg (placeholder 1200x630) and favicon if missing.
+
+2) FRONTEND PAGES/COMPONENTS (Next.js /app router)
+- Create src/components/CTAButton.tsx -> props {plan?: "monthly"|"annual"}; onClick => POST to `${process.env.NEXT_PUBLIC_BACKEND_CHECKOUT}` with plan; redirect to .url.
+- Create src/components/Testimonials.tsx renders cards from marketing/testimonials.json.
+- Create src/components/USPGrid.tsx renders 3 USP bullets from marketing/landing_snippets.json.
+- Update src/app/page.tsx (landing):
+  - Hero: headline + subhead from landing_snippets.json
+  - Buttons: <CTAButton plan="monthly" /> and link to /pricing
+  - Include <USPGrid/> and <Testimonials/>
+- Add newsletter capture:
+  - Create src/app/api/newsletter/route.ts (server action) that posts {email} to `/api/v1/newsletter/subscribe` on backend if available; else store to `localStorage` with timestamp and show “We’ll confirm by email.”
+  - Create SubscribeForm component (email + submit) used on landing and /pricing.
+
+3) SEO/ANALYTICS/META
+- Update src/app/layout.tsx:
+  - <meta name="description" content="Levqor — autonomous ops.">
+  - OG/Twitter tags pointing to /og-image.jpg
+  - If NEXT_PUBLIC_PLAUSIBLE_DOMAIN: inject plausible script.
+  - If NEXT_PUBLIC_HEAP_ID: inject heap snippet.
+  - Read UTM params (utm_source, utm_medium, utm_campaign, ref) on first client load and save to localStorage.levqor_ref with ts.
+
+4) PRICING LINKS
+- Ensure /pricing uses <CTAButton/> for each plan (monthly, annual, $1 test if present).
+
+5) KPI WIDGET
+- Create src/components/LiveStats.tsx:
+  - fetch(`${process.env.NEXT_PUBLIC_BACKEND_SUMMARY}`) SSR or ISR 60s; display visits, conversions, MRR, active_users if keys exist; else hide.
+- Add <LiveStats/> to landing below hero.
+
+6) ROUTES + ROBOTS/SITEMAP
+- Ensure /robots.txt and /sitemap.xml include /, /pricing, /docs, /blog.
+- Verify existing files updated without duplicates.
+
+7) VERIFY (must pass)
+- 200: / , /pricing
+- Landing renders headline, USP grid, testimonials, newsletter form, CTA buttons
+- Clicking “Start free trial” requests backend checkout and redirects to Stripe URL (do not complete payment)
+- View source: OG/Twitter meta present
+- If Plausible/Heap env set, script tags present
+- /sitemap.xml lists new/updated URLs
+
+8) OUTPUT SUMMARY (print only)
+{
+ "pages":["/","/pricing"],
+ "assets":["marketing/landing_snippets.json","marketing/testimonials.json","/og-image.jpg"],
+ "components":["CTAButton","USPGrid","Testimonials","LiveStats","SubscribeForm"],
+ "seo":"ok",
+ "analytics":{"plausible":bool(env.PLAUSIBLE),"heap":bool(env.HEAP)},
+ "newsletter":"wired",
+ "kpi_widget":"enabled_if_backend_summary"
+}
+
+SAFETY
+- Do not print secrets. Do not modify backend except calling its endpoints.
+- If backend KPI endpoint missing, render LiveStats silently off.
