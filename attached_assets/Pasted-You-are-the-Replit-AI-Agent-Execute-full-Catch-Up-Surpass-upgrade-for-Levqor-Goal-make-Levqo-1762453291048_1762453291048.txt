@@ -1,0 +1,115 @@
+You are the Replit AI Agent. Execute full “Catch-Up & Surpass” upgrade for Levqor. 
+Goal: make Levqor publicly discoverable, AI-driven, and competitive with Zapier / Make.com while staying inside Replit and Vercel free limits. 
+Work autonomously, fail closed on errors, print only completion summary (no secrets). 
+
+====================================================
+PHASE 1 — PUBLIC LANDING (levqor.ai)
+====================================================
+1. Create new directory `/home/runner/levqor-site` using Next.js (app router).
+2. Add pages:
+   - `/` headline **“Levqor — The Self-Driven Automation Engine”**  
+     Sections: short explainer, CTA “Watch it Think”, CTA “Start Free” linking to existing `/pricing`.  
+     Embed video placeholder `/public/demo.mp4`.
+   - `/contact`, `/privacy`, `/terms`.
+3. Add SEO: meta description, OpenGraph, sitemap.xml, robots.txt.
+4. Inject Plausible analytics if `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` exists.
+5. Deploy to Vercel with domain `levqor.ai`.  
+   Output DNS instructions for Cloudflare.
+
+====================================================
+PHASE 2 — INTEGRATIONS (Slack, Notion, Gmail)
+====================================================
+1. In backend:
+   - Add routes `/integrations/slack`, `/integrations/notion`, `/integrations/gmail`.
+   - Implement minimal POST handler performing single action:
+     • Slack → send message “Levqor test OK”.  
+     • Notion → append test row.  
+     • Gmail → send test summary via existing mailer.  
+   - Store tokens in `data/integrations.json`.
+   - Add `/ops/selftest integrations` returning {slack, notion, gmail}.
+2. Confirm endpoints 200 OK.
+
+====================================================
+PHASE 3 — FREE PLAN + CREDITS
+====================================================
+1. Modify `users.json` → add `credits_remaining`.  
+   Default 50 for new users.
+2. Deduct one credit per automation run.
+3. Add Stripe price “Credit Pack” ($9 → 100 credits) to existing billing config.
+4. Update `/pricing` page with new “Free Tier” card.
+
+====================================================
+PHASE 4 — AI BUILDER UX
+====================================================
+1. Frontend: create `/builder` page.  
+   - Grid UI showing automation nodes.  
+   - Input box “Describe your workflow”.  
+   - Button “Think” → POST to `/api/plan`.
+2. Backend: add `/api/plan` endpoint.  
+   - Uses GPT-5-mini completion to convert natural language to JSON pipeline:
+     Example: `{ "trigger":"email.received", "actions":["summarize","sendSlack"] }`
+   - Save under `/data/pipelines/{uuid}.json`.
+3. Add `/api/run` → execute pipeline and log to `data/jobs.jsonl`.
+
+====================================================
+PHASE 5 — CONTENT + REFERRAL LOOP
+====================================================
+1. Add `/blog` section.  
+   - Support MDX posts under `/content`.  
+   - Seed posts:  
+     • “How Levqor Runs Itself”  
+     • “EchoPilot vs Zapier”  
+     • “Automate Everything from Your Phone”.
+2. Add referral tracking:  
+   - Capture `?ref=` param on visit → store in localStorage → send to `/api/referrals`.
+   - Backend `/api/referrals` logs ref + timestamp; reward +20 credits if valid signup.
+3. Automate weekly post creation: extend `scripts/ai_report_agent.py` to generate one MDX article every 7 days in `/content/auto/`.
+
+====================================================
+COST CONTROL
+====================================================
+- Reuse current Replit instance (no new runtime).  
+- Scheduler unchanged; cost guard active ($10/day).  
+- Vercel free hosting.  
+- Resend free 3 000 emails/month.  
+- Slack/Notion/Gmail all free developer tiers.
+
+====================================================
+VERIFICATION AFTER EXECUTION
+====================================================
+✅ `https://levqor.ai` loads with CTA + demo  
+✅ `/integrations/*` return success JSON  
+✅ New users show 50 credits  
+✅ `/builder` page “Think” → returns JSON pipeline  
+✅ `/blog` lists posts  
+✅ Referral API returns 200  
+✅ Stripe billing intact (`billing_enabled: true`)  
+✅ No CORS or 500 errors  
+
+====================================================
+OUTPUT SUMMARY FORMAT
+====================================================
+{
+ "landing":"OK/FAIL",
+ "integrations":{"slack":"OK","notion":"OK","gmail":"OK"},
+ "credits":"OK/FAIL",
+ "ai_builder":"OK/FAIL",
+ "blog_referral":"OK/FAIL",
+ "cost_guard":"OK",
+ "next_steps":"Deploy demo video + marketing"
+}
+
+====================================================
+SAFETY RULES
+====================================================
+- Never print or expose secrets.  
+- On any failed step, restore previous version from git and stop.  
+- Verify each endpoint health after modification.  
+- Log all actions under `logs/upgrade_YYYYMMDD.log`.
+
+====================================================
+EXPECTED RESULT
+====================================================
+A fully public, AI-driven, discoverable, free-tier enabled Levqor with integrations, visual builder, and marketing content — matching or surpassing Make.com’s visible product footprint at near-zero cost.
+
+END OF PROMPT
