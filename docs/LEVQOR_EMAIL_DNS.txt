@@ -2,60 +2,45 @@
 ║        LEVQOR EMAIL DNS RECORDS FOR CLOUDFLARE            ║
 ╚═══════════════════════════════════════════════════════════╝
 
-Add these DNS records in Cloudflare for levqor.ai domain:
-
-STEP 1: RESEND OUTBOUND (Sending Emails)
+ADD THESE RECORDS IN CLOUDFLARE DNS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-SPF Record:
-Type:  TXT
-Name:  @
-Value: v=spf1 include:spf.resend.com ~all
-TTL:   Auto
-
-DKIM Record (get from Resend dashboard after domain verification):
 Type:  TXT
 Name:  resend._domainkey
-Value: <DKIM value from Resend - will be added after API call>
+Value: p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCi1lvG9w6V7xTlt36OKru0kMFbvX/IBD2t8IhKARR9IEoDhUTLSLySsd5vKp3qVA8YcD9nN2KSwCtpdhcl5Q/ZTv6HB+YRvt7p35eVPFHOLakaFnxfGbNj/v+NnWwWwVf/iSMT4ZhgLyIGcZ+Hkp4aIvMZU1mkotriWQTwNLkdFQIDAQAB
 TTL:   Auto
 
-
-STEP 2: CLOUDFLARE EMAIL ROUTING (Receiving Emails)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Go to: https://dash.cloudflare.com
-Select: levqor.ai domain
-Navigate to: Email → Email Routing
-Click: Enable Email Routing
-
-Cloudflare will auto-add MX records. Then add these forwarding rules:
-
-support@levqor.ai   → <YOUR_GMAIL>
-billing@levqor.ai   → <YOUR_GMAIL>
-security@levqor.ai  → <YOUR_GMAIL>
-no-reply@levqor.ai  → <YOUR_GMAIL>
-
-
-STEP 3: DMARC (Email Authentication)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Type:  MX
+Name:  send
+Value: feedback-smtp.us-east-1.amazonses.com
+TTL:   Auto
 
 Type:  TXT
-Name:  _dmarc
-Value: v=DMARC1; p=quarantine; rua=mailto:dmarc@levqor.ai; sp=quarantine
+Name:  send
+Value: v=spf1 include:amazonses.com ~all
 TTL:   Auto
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-NEXT STEPS:
-1. Get Resend API key: https://resend.com/api-keys
-2. Add RESEND_API_KEY to Replit Secrets
-3. Verify domain in Resend dashboard
-4. Add DKIM record from Resend to Cloudflare
-5. Enable Email Routing in Cloudflare
-6. Test send with: python3 test_email.py
-
+CLOUDFLARE EMAIL ROUTING (FREE INBOUND):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-VERIFICATION STATUS: PENDING
-Last updated: Not yet configured
+1. Go to Cloudflare → levqor.ai → Email → Email Routing
+2. Click 'Enable Email Routing'
+3. Add forwarding rules:
+
+   support@levqor.ai  → (your Gmail)
+   billing@levqor.ai  → (your Gmail)
+   security@levqor.ai → (your Gmail)
+   no-reply@levqor.ai → (your Gmail)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NEXT STEPS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Add ALL DNS records above to Cloudflare
+2. Wait 5-10 minutes for DNS propagation
+3. Run: python3 verify_resend.py
+4. Once verified, run: python3 test_email.py
+
