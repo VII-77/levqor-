@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     siteName: 'Levqor',
     images: [
       {
-        url: '/og-image.jpg',
+        url: '/og/launch.jpg',
         width: 1200,
         height: 630,
         alt: 'Levqor - Job Orchestration Platform',
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Levqor - Production-Ready Job Orchestration for AI Automation',
     description: 'Enterprise-grade job orchestration API with built-in connectors, security, and monitoring.',
-    images: ['/og-image.jpg'],
+    images: ['/og/launch.jpg'],
   },
 };
 
