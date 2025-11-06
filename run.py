@@ -1163,6 +1163,51 @@ def run_pipeline():
         log.exception("Pipeline execution error")
         return jsonify({"error": str(e)}), 500
 
+@app.post("/api/v1/referrals")
+def track_referral():
+    """Track referral code and reward credits on valid signup"""
+    body = request.get_json(silent=True) or {}
+    ref_code = body.get("ref")
+    visitor_email = body.get("email")
+    
+    if not ref_code:
+        return jsonify({"status": "ok", "message": "no referral code"}), 200
+    
+    try:
+        # Log referral
+        referral_log = {
+            "ref_code": ref_code,
+            "visitor_email": visitor_email,
+            "timestamp": time(),
+            "status": "tracked"
+        }
+        
+        with open("data/referrals.jsonl", "a") as f:
+            f.write(json.dumps(referral_log) + "\n")
+        
+        # If visitor_email provided and is new signup, reward referrer
+        if visitor_email:
+            visitor = fetch_user_by_email(visitor_email)
+            if visitor and visitor.get("created_at", 0) > (time() - 86400):  # Created in last 24h
+                # Find referrer by code (assuming ref codes are user IDs)
+                referrer = fetch_user_by_id(ref_code)
+                if referrer:
+                    # Add 20 bonus credits to referrer
+                    db = get_db()
+                    db.execute(
+                        "UPDATE users SET credits_remaining = credits_remaining + 20 WHERE id = ?",
+                        (ref_code,)
+                    )
+                    db.commit()
+                    referral_log["status"] = "rewarded"
+                    referral_log["credits_awarded"] = 20
+        
+        return jsonify({"status": "ok", "referral": referral_log}), 200
+        
+    except Exception as e:
+        log.exception("Referral tracking error")
+        return jsonify({"error": str(e)}), 500
+
 @app.post("/api/v1/connect/<name>")
 def connect(name):
     """
