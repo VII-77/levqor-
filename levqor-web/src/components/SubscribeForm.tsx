@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
+import { logEvent } from '@/utils/metrics';
 
 export default function SubscribeForm() {
   const [email, setEmail] = useState('');
@@ -11,6 +12,8 @@ export default function SubscribeForm() {
     e.preventDefault();
     setStatus('loading');
     setMessage('');
+
+    logEvent('newsletter', { email_hash: btoa(email).substring(0, 16) });
 
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_BASE;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { logEvent } from '@/utils/metrics';
 
 interface CTAButtonProps {
   plan?: 'monthly' | 'annual' | 'test';
@@ -14,6 +15,8 @@ export default function CTAButton({ plan = 'monthly', children }: CTAButtonProps
   const handleClick = async () => {
     setLoading(true);
     setError(null);
+
+    logEvent('cta_click', { plan });
 
     try {
       const response = await fetch(process.env.NEXT_PUBLIC_BACKEND_CHECKOUT || '', {

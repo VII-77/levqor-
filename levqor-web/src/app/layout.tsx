@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import RefCapture from '@/components/RefCapture';
+import PageViewTracker from '@/components/PageViewTracker';
 
 export const metadata: Metadata = {
   title: 'Levqor - Production-Ready Job Orchestration for AI Automation',
@@ -58,6 +59,7 @@ export default function RootLayout({
       </head>
       <body>
         <RefCapture />
+        <PageViewTracker />
         <nav style={{
           borderBottom: '1px solid #e0e0e0',
           padding: '16px 20px',
