@@ -1,0 +1,32 @@
+{
+  "status": "SUCCESS",
+  "frontend_build": "completed",
+  "pages": ["/", "/pricing"],
+  "components": ["CTAButton", "USPGrid", "Testimonials", "LiveStats", "SubscribeForm", "RefCapture"],
+  "assets_source": "https://api.levqor.ai/marketing/*",
+  "backend_integration": {
+    "base_url": "https://api.levqor.ai",
+    "marketing_summary": "https://api.levqor.ai/api/v1/marketing/summary",
+    "checkout": "https://api.levqor.ai/billing/create-checkout-session",
+    "newsletter": "https://api.levqor.ai/api/v1/newsletter/subscribe"
+  },
+  "seo": "configured",
+  "analytics": {
+    "plausible": "supported (env var not set)",
+    "heap": "supported (env var not set)"
+  },
+  "kpi_widget": "enabled_if_backend_summary",
+  "build_artifacts": {
+    "directory": ".next",
+    "size_estimate": "~2-3MB",
+    "pages_built": ["index", "pricing"]
+  },
+  "deployment_ready": true,
+  "next_steps": [
+    "Deploy to Vercel: cd levqor-web && vercel --prod",
+    "Or deploy to Netlify, AWS, Docker, etc (see DEPLOYMENT.md)",
+    "Configure custom domain",
+    "Set environment variables in deployment platform",
+    "Test all functionality in production"
+  ]
+}
