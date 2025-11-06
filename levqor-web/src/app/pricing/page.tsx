@@ -1,4 +1,27 @@
+import { Metadata } from 'next';
 import CTAButton from '@/components/CTAButton';
+
+export const metadata: Metadata = {
+  title: 'Pricing - Levqor',
+  description: 'Simple, transparent pricing for Levqor job orchestration. Start free, scale when ready.',
+  alternates: {
+    canonical: 'https://app.levqor.ai/pricing',
+  },
+  openGraph: {
+    title: 'Pricing - Levqor',
+    description: 'Simple, transparent pricing for Levqor job orchestration. Start free, scale when ready.',
+    type: 'website',
+    url: 'https://app.levqor.ai/pricing',
+    images: [
+      {
+        url: '/og/pricing.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Levqor Pricing',
+      },
+    ],
+  },
+};
 
 export default function Pricing() {
   const plans = [
