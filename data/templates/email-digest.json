@@ -1,0 +1,48 @@
+{
+  "id": "email-digest",
+  "name": "Weekly Email Summary",
+  "description": "Summarize important emails and send digest every Friday",
+  "category": "productivity",
+  "estimated_credits": 2,
+  "pipeline": {
+    "trigger": "schedule",
+    "schedule": "0 17 * * 5",
+    "actions": [
+      {
+        "type": "summarize",
+        "connector": "ai",
+        "params": {
+          "source": "gmail",
+          "filter": "is:important after:{{7_days_ago}}",
+          "max_length": 500
+        }
+      },
+      {
+        "type": "sendEmail",
+        "connector": "gmail",
+        "params": {
+          "to": "{{user_email}}",
+          "subject": "📧 Your Weekly Email Summary",
+          "body": "{{summary}}"
+        }
+      }
+    ]
+  },
+  "config_fields": [
+    {
+      "key": "email_filter",
+      "label": "Gmail Filter",
+      "type": "text",
+      "default": "is:important",
+      "required": true
+    },
+    {
+      "key": "summary_length",
+      "label": "Summary Length (words)",
+      "type": "number",
+      "default": 500,
+      "min": 100,
+      "max": 1000
+    }
+  ]
+}

@@ -539,6 +539,46 @@ def serve_blog(slug=None):
             log.error(f"Error rendering blog post: {e}")
             abort(500)
 
+@app.get("/api/docs")
+def serve_api_docs():
+    """Serve Swagger UI for API documentation"""
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Levqor API Documentation</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+    <style>
+        body { margin: 0; padding: 0; }
+        .topbar { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="swagger-ui"></div>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = () => {
+            window.ui = SwaggerUIBundle({
+                url: '/static/openapi.json',
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout"
+            });
+        };
+    </script>
+</body>
+</html>"""
+    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+
 JOBS = {}
 
 INTAKE_SCHEMA = {
@@ -1870,6 +1910,94 @@ def get_metrics_summary():
         
     except Exception as e:
         log.exception("Metrics summary error")
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/api/v1/templates")
+def list_templates():
+    """List all available automation templates"""
+    try:
+        templates_dir = "data/templates"
+        os.makedirs(templates_dir, exist_ok=True)
+        
+        templates = []
+        for filename in os.listdir(templates_dir):
+            if filename.endswith(".json"):
+                filepath = os.path.join(templates_dir, filename)
+                with open(filepath, 'r') as f:
+                    template = json.load(f)
+                    templates.append({
+                        "id": template.get("id"),
+                        "name": template.get("name"),
+                        "description": template.get("description"),
+                        "category": template.get("category"),
+                        "estimated_credits": template.get("estimated_credits", 1)
+                    })
+        
+        return jsonify({"templates": templates}), 200
+    except Exception as e:
+        log.exception("Template list error")
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/api/v1/templates/<template_id>")
+def get_template(template_id):
+    """Get full template details"""
+    try:
+        filepath = f"data/templates/{template_id}.json"
+        if not os.path.exists(filepath):
+            return jsonify({"error": "Template not found"}), 404
+        
+        with open(filepath, 'r') as f:
+            template = json.load(f)
+        
+        return jsonify(template), 200
+    except Exception as e:
+        log.exception(f"Template get error: {template_id}")
+        return jsonify({"error": str(e)}), 500
+
+@app.post("/api/v1/templates/<template_id>/instantiate")
+def instantiate_template(template_id):
+    """Create a workflow from a template with user configuration"""
+    user, error = require_user()
+    if error:
+        return error
+    
+    try:
+        filepath = f"data/templates/{template_id}.json"
+        if not os.path.exists(filepath):
+            return jsonify({"error": "Template not found"}), 404
+        
+        with open(filepath, 'r') as f:
+            template = json.load(f)
+        
+        body = request.get_json(silent=True) or {}
+        config = body.get("config", {})
+        
+        pipeline = template["pipeline"].copy()
+        pipeline_id = uuid4().hex
+        
+        for field in template.get("config_fields", []):
+            key = field["key"]
+            value = config.get(key, field.get("default"))
+            if field.get("required") and not value:
+                return jsonify({"error": f"Missing required field: {key}"}), 400
+        
+        pipeline["user_config"] = config
+        pipeline["template_id"] = template_id
+        
+        os.makedirs("data/pipelines", exist_ok=True)
+        with open(f"data/pipelines/{pipeline_id}.json", "w") as f:
+            json.dump(pipeline, f, indent=2)
+        
+        log.info(f"Template instantiated: {template_id} -> {pipeline_id} for user {user['user_id']}")
+        
+        return jsonify({
+            "pipeline_id": pipeline_id,
+            "template_id": template_id,
+            "status": "created"
+        }), 200
+        
+    except Exception as e:
+        log.exception(f"Template instantiate error: {template_id}")
         return jsonify({"error": str(e)}), 500
 
 def run_backup_job():

@@ -1,0 +1,340 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Levqor API",
+    "version": "1.0.0",
+    "description": "AI-powered automation and workflow orchestration API",
+    "contact": {
+      "email": "support@levqor.ai",
+      "url": "https://levqor.ai"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.levqor.ai",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:5000",
+      "description": "Development"
+    }
+  ],
+  "tags": [
+    {"name": "Health", "description": "System health and monitoring"},
+    {"name": "AI Workflows", "description": "Natural language to automation pipelines"},
+    {"name": "Users", "description": "User profile management"},
+    {"name": "Credits", "description": "Billing and credits"},
+    {"name": "Referrals", "description": "Referral tracking system"},
+    {"name": "Analytics", "description": "Event tracking and metrics"},
+    {"name": "Integrations", "description": "External service connectors"}
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "System is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "ts": {"type": "number"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plan": {
+      "post": {
+        "tags": ["AI Workflows"],
+        "summary": "Generate workflow from natural language",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["description"],
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "example": "Every morning at 9am, send top HN posts to Slack"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pipeline generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pipeline_id": {"type": "string"},
+                    "pipeline": {"type": "object"},
+                    "estimated_cost": {"type": "number"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/run": {
+      "post": {
+        "tags": ["AI Workflows"],
+        "summary": "Execute saved workflow pipeline",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["pipeline_id"],
+                "properties": {
+                  "pipeline_id": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pipeline executed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "credits_deducted": {"type": "number"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/subscription": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user subscription and credits",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Subscription info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "plan": {"type": "string"},
+                    "status": {"type": "string"},
+                    "credits_remaining": {"type": "number"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/usage": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get 14-day usage history",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Usage data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "usage": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "day": {"type": "string"},
+                          "jobs_run": {"type": "number"},
+                          "cost_saving": {"type": "number"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/referral-code": {
+      "get": {
+        "tags": ["Referrals"],
+        "summary": "Get or create referral code",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Referral code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ref_code": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/credits/purchase": {
+      "post": {
+        "tags": ["Credits"],
+        "summary": "Purchase credit pack via Stripe",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["pack"],
+                "properties": {
+                  "pack": {
+                    "type": "string",
+                    "enum": ["starter"],
+                    "example": "starter"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkout_url": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/referrals/capture": {
+      "post": {
+        "tags": ["Referrals"],
+        "summary": "Capture referral signup",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["ref", "email"],
+                "properties": {
+                  "ref": {"type": "string"},
+                  "email": {"type": "string"},
+                  "utm_source": {"type": "string"},
+                  "utm_medium": {"type": "string"},
+                  "utm_campaign": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Referral captured"
+          }
+        }
+      }
+    },
+    "/api/v1/events": {
+      "post": {
+        "tags": ["Analytics"],
+        "summary": "Track analytics event",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["type"],
+                "properties": {
+                  "type": {"type": "string", "example": "pageview:/pricing"},
+                  "meta": {"type": "object"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event tracked"
+          }
+        }
+      }
+    },
+    "/api/v1/metrics/summary": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get aggregated metrics",
+        "responses": {
+          "200": {
+            "description": "Metrics summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "signups_7d": {"type": "number"},
+                    "conversions_7d": {"type": "number"},
+                    "total_users": {"type": "number"},
+                    "conversion_rate": {"type": "number"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Supabase JWT token"
+      }
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "daily-hn-digest",
+  "name": "Daily Hacker News Digest",
+  "description": "Get top Hacker News posts sent to Slack every morning",
+  "category": "productivity",
+  "estimated_credits": 1,
+  "pipeline": {
+    "trigger": "schedule",
+    "schedule": "0 9 * * *",
+    "actions": [
+      {
+        "type": "sendSlack",
+        "connector": "slack",
+        "params": {
+          "channel": "#general",
+          "message": "📰 Top 3 HN posts today"
+        }
+      }
+    ]
+  },
+  "config_fields": [
+    {
+      "key": "slack_channel",
+      "label": "Slack Channel",
+      "type": "text",
+      "default": "#general",
+      "required": true
+    },
+    {
+      "key": "post_count",
+      "label": "Number of Posts",
+      "type": "number",
+      "default": 3,
+      "min": 1,
+      "max": 10
+    }
+  ]
+}
