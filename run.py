@@ -171,12 +171,32 @@ def serve_docs(filename=None):
         
         html_content = markdown2.markdown(content, extras=["fenced-code-blocks", "tables", "header-ids"])
         
+        page_title = "Levqor Documentation" if filename == "index.md" else f"Levqor - {filename.replace('.md', '').replace('-', ' ').title()}"
+        page_desc = "Production-ready job orchestration API for AI automation. Enterprise security, built-in connectors, automated backups."
+        page_url = f"https://api.levqor.ai/public/docs/{filename.replace('.md', '')}"
+        
         html_template = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Levqor Documentation</title>
+    <title>{page_title}</title>
+    <meta name="description" content="{page_desc}">
+    
+    <!-- OpenGraph Meta Tags -->
+    <meta property="og:title" content="{page_title}">
+    <meta property="og:description" content="{page_desc}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{page_url}">
+    <meta property="og:site_name" content="Levqor">
+    <meta property="og:image" content="https://api.levqor.ai/public/og-image.png">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{page_title}">
+    <meta name="twitter:description" content="{page_desc}">
+    <meta name="twitter:image" content="https://api.levqor.ai/public/og-image.png">
+    
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }}
         h1 {{ border-bottom: 2px solid #eee; padding-bottom: 10px; }}
@@ -231,12 +251,32 @@ def serve_blog(slug=None):
                 </div>
                 """
             
+            page_title = "Levqor Blog - AI Automation & Job Orchestration"
+            page_desc = "Latest updates, guides, and insights on production-ready AI automation infrastructure."
+            page_url = "https://api.levqor.ai/public/blog/"
+            
             html_template = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Levqor Blog</title>
+    <title>{page_title}</title>
+    <meta name="description" content="{page_desc}">
+    
+    <!-- OpenGraph Meta Tags -->
+    <meta property="og:title" content="{page_title}">
+    <meta property="og:description" content="{page_desc}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{page_url}">
+    <meta property="og:site_name" content="Levqor">
+    <meta property="og:image" content="https://api.levqor.ai/public/og-image.png">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{page_title}">
+    <meta name="twitter:description" content="{page_desc}">
+    <meta name="twitter:image" content="https://api.levqor.ai/public/og-image.png">
+    
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }}
         h1 {{ border-bottom: 2px solid #eee; padding-bottom: 10px; }}
@@ -275,12 +315,33 @@ def serve_blog(slug=None):
             
             html_content = markdown2.markdown(content, extras=["fenced-code-blocks", "tables", "header-ids"])
             
+            post_title = content.split('\n')[0].replace('#', '').strip() if content else "Levqor Blog Post"
+            page_title = f"{post_title} - Levqor Blog"
+            page_desc = "Production-ready job orchestration API for AI automation. Latest updates and insights."
+            page_url = f"https://api.levqor.ai/public/blog/{slug.replace('.md', '')}"
+            
             html_template = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Levqor Blog</title>
+    <title>{page_title}</title>
+    <meta name="description" content="{page_desc}">
+    
+    <!-- OpenGraph Meta Tags -->
+    <meta property="og:title" content="{page_title}">
+    <meta property="og:description" content="{page_desc}">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="{page_url}">
+    <meta property="og:site_name" content="Levqor">
+    <meta property="og:image" content="https://api.levqor.ai/public/og-image.png">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{page_title}">
+    <meta name="twitter:description" content="{page_desc}">
+    <meta name="twitter:image" content="https://api.levqor.ai/public/og-image.png">
+    
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }}
         h1 {{ border-bottom: 2px solid #eee; padding-bottom: 10px; }}
