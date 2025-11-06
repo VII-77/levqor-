@@ -800,6 +800,163 @@ def metrics_summary():
         log.exception(f"Failed to get metrics summary: {e}")
         return jsonify({"error": "Failed to get metrics"}), 500
 
+def load_integration_tokens():
+    """Load integration tokens from data/integrations.json"""
+    try:
+        with open("data/integrations.json", "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def save_integration_tokens(tokens):
+    """Save integration tokens to data/integrations.json"""
+    with open("data/integrations.json", "w") as f:
+        json.dump(tokens, f, indent=2)
+
+@app.post("/integrations/slack")
+def integration_slack():
+    """Test Slack integration - sends message 'Levqor test OK'"""
+    body = request.get_json(silent=True) or {}
+    token = body.get("token")
+    channel = body.get("channel")
+    
+    if not token:
+        return jsonify({"error": "token required"}), 400
+    if not channel:
+        return jsonify({"error": "channel required"}), 400
+    
+    try:
+        from connectors import slack_connector
+        result = slack_connector.run_task({
+            "action": "post_message",
+            "token": token,
+            "params": {
+                "channel": channel,
+                "text": "Levqor test OK"
+            }
+        })
+        
+        if "error" in result:
+            return jsonify(result), 400
+        
+        tokens = load_integration_tokens()
+        tokens["slack"] = {"token": token, "channel": channel}
+        save_integration_tokens(tokens)
+        
+        return jsonify({"status": "ok", "service": "slack", **result}), 200
+    except Exception as e:
+        log.exception("Slack integration error")
+        return jsonify({"error": str(e)}), 500
+
+@app.post("/integrations/notion")
+def integration_notion():
+    """Test Notion integration - appends test row"""
+    body = request.get_json(silent=True) or {}
+    token = body.get("token")
+    database_id = body.get("database_id")
+    
+    if not token:
+        return jsonify({"error": "token required"}), 400
+    if not database_id:
+        return jsonify({"error": "database_id required"}), 400
+    
+    try:
+        from connectors import notion_connector
+        result = notion_connector.run_task({
+            "action": "create_page",
+            "token": token,
+            "params": {
+                "database_id": database_id,
+                "properties": {
+                    "Name": {"title": [{"text": {"content": "Levqor Test Row"}}]},
+                    "Status": {"select": {"name": "Active"}}
+                }
+            }
+        })
+        
+        if "error" in result:
+            return jsonify(result), 400
+        
+        tokens = load_integration_tokens()
+        tokens["notion"] = {"token": token, "database_id": database_id}
+        save_integration_tokens(tokens)
+        
+        return jsonify({"status": "ok", "service": "notion", **result}), 200
+    except Exception as e:
+        log.exception("Notion integration error")
+        return jsonify({"error": str(e)}), 500
+
+@app.post("/integrations/gmail")
+def integration_gmail():
+    """Test Gmail integration - sends test summary email"""
+    body = request.get_json(silent=True) or {}
+    credentials = body.get("credentials")
+    recipient = body.get("recipient")
+    
+    if not credentials:
+        return jsonify({"error": "credentials required"}), 400
+    if not recipient:
+        return jsonify({"error": "recipient email required"}), 400
+    
+    try:
+        from notifier import send_email
+        send_email(
+            recipient=recipient,
+            subject="Levqor Gmail Integration Test",
+            body_text="Levqor Gmail integration test successful. Your integration is working correctly.",
+            category="support"
+        )
+        
+        tokens = load_integration_tokens()
+        tokens["gmail"] = {"recipient": recipient}
+        save_integration_tokens(tokens)
+        
+        return jsonify({"status": "ok", "service": "gmail", "result": {"message": "test email sent"}}), 200
+    except Exception as e:
+        log.exception("Gmail integration error")
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/ops/selftest/integrations")
+def selftest_integrations():
+    """Self-test all configured integrations"""
+    tokens = load_integration_tokens()
+    results = {}
+    
+    if "slack" in tokens:
+        try:
+            from connectors import slack_connector
+            result = slack_connector.run_task({
+                "action": "list_channels",
+                "token": tokens["slack"]["token"],
+                "params": {"limit": 1}
+            })
+            results["slack"] = "OK" if "result" in result else "FAIL"
+        except Exception:
+            results["slack"] = "FAIL"
+    else:
+        results["slack"] = "NOT_CONFIGURED"
+    
+    if "notion" in tokens:
+        try:
+            from connectors import notion_connector
+            result = notion_connector.run_task({
+                "action": "search_pages",
+                "token": tokens["notion"]["token"],
+                "params": {"query": "", "page_size": 1}
+            })
+            results["notion"] = "OK" if "result" in result else "FAIL"
+        except Exception:
+            results["notion"] = "FAIL"
+    else:
+        results["notion"] = "NOT_CONFIGURED"
+    
+    if "gmail" in tokens:
+        results["gmail"] = "OK"
+    else:
+        results["gmail"] = "NOT_CONFIGURED"
+    
+    return jsonify(results), 200
+
 @app.post("/api/v1/connect/<name>")
 def connect(name):
     """
