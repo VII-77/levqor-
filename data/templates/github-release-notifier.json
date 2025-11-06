@@ -1,0 +1,43 @@
+{
+  "id": "github-release-notifier",
+  "name": "GitHub Release Notifier",
+  "description": "Get notified in Slack when a GitHub repo has a new release",
+  "category": "development",
+  "estimated_credits": 1,
+  "pipeline": {
+    "trigger": "webhook",
+    "webhook_source": "github",
+    "actions": [
+      {
+        "type": "filter",
+        "condition": "{{event_type}} == 'release'",
+        "then": [
+          {
+            "type": "sendSlack",
+            "connector": "slack",
+            "params": {
+              "channel": "#dev",
+              "message": "🚀 New release: {{release_name}} - {{repo_name}}\n{{release_url}}"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "config_fields": [
+    {
+      "key": "repo_name",
+      "label": "GitHub Repository",
+      "type": "text",
+      "placeholder": "owner/repo",
+      "required": true
+    },
+    {
+      "key": "slack_channel",
+      "label": "Slack Channel",
+      "type": "text",
+      "default": "#dev",
+      "required": true
+    }
+  ]
+}

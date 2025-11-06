@@ -1,0 +1,48 @@
+{
+  "id": "contact-form-handler",
+  "name": "Contact Form to Notion + Slack",
+  "description": "When contact form submitted, create Notion task and notify Slack",
+  "category": "sales",
+  "estimated_credits": 1,
+  "pipeline": {
+    "trigger": "webhook",
+    "actions": [
+      {
+        "type": "createPage",
+        "connector": "notion",
+        "params": {
+          "database_id": "YOUR_DATABASE_ID",
+          "title": "New Contact: {{name}}",
+          "properties": {
+            "Email": "{{email}}",
+            "Message": "{{message}}",
+            "Status": "New"
+          }
+        }
+      },
+      {
+        "type": "sendSlack",
+        "connector": "slack",
+        "params": {
+          "channel": "#sales",
+          "message": "🔔 New contact: {{name}} ({{email}})"
+        }
+      }
+    ]
+  },
+  "config_fields": [
+    {
+      "key": "notion_database_id",
+      "label": "Notion Database ID",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "slack_channel",
+      "label": "Slack Channel",
+      "type": "text",
+      "default": "#sales",
+      "required": true
+    }
+  ]
+}

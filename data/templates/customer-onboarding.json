@@ -1,0 +1,56 @@
+{
+  "id": "customer-onboarding",
+  "name": "Customer Onboarding Sequence",
+  "description": "Automated email sequence for new customers (Day 0, 3, 7)",
+  "category": "marketing",
+  "estimated_credits": 3,
+  "pipeline": {
+    "trigger": "webhook",
+    "actions": [
+      {
+        "type": "sendEmail",
+        "connector": "gmail",
+        "delay": 0,
+        "params": {
+          "to": "{{customer_email}}",
+          "subject": "Welcome to {{company_name}}! 🎉",
+          "body": "Thanks for signing up! Here's how to get started..."
+        }
+      },
+      {
+        "type": "sendEmail",
+        "connector": "gmail",
+        "delay": 259200,
+        "params": {
+          "to": "{{customer_email}}",
+          "subject": "Quick tips for {{product_name}}",
+          "body": "Here are 3 quick wins you can achieve today..."
+        }
+      },
+      {
+        "type": "sendEmail",
+        "connector": "gmail",
+        "delay": 604800,
+        "params": {
+          "to": "{{customer_email}}",
+          "subject": "How's it going with {{product_name}}?",
+          "body": "We'd love to hear your feedback..."
+        }
+      }
+    ]
+  },
+  "config_fields": [
+    {
+      "key": "company_name",
+      "label": "Company Name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "product_name",
+      "label": "Product Name",
+      "type": "text",
+      "required": true
+    }
+  ]
+}
