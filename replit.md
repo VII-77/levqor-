@@ -12,6 +12,22 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 
 ## Recent Changes
 **November 6, 2025**
+- **Connector Pack Integration:**
+  - Created connectors/ folder with dynamic connector modules
+  - Implemented gmail_connector.py (Google API Python Client)
+  - Implemented notion_connector.py (Notion API via requests)
+  - Implemented slack_connector.py (Slack SDK WebClient)
+  - Implemented telegram_connector.py (python-telegram-bot library)
+  - Added /api/v1/connect/<name> dynamic endpoint with API key protection
+  - All connectors expose run_task(payload) → dict interface
+  - Fail-closed error handling with graceful degradation
+  - Full import validation and testing completed
+- **Stripe Billing Integration:**
+  - Added /billing/create-checkout-session endpoint
+  - Added /billing/webhook endpoint with signature verification
+  - Payment success/failure email notifications via notifier.py
+  - User payment history stored in database metadata
+  - CORS updated to allow Stripe domains
 - **Email System Integration:**
   - Created notifier.py module with Resend.com integration
   - Configured branded email addresses: support@, billing@, no-reply@, security@levqor.ai
@@ -68,7 +84,12 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 ### Backend Structure
 - `run.py` - Main Flask application with API endpoints
 - `notifier.py` - Email notification module (Resend integration)
-- `requirements.txt` - Python dependencies (Flask 3.0.0, jsonschema 4.22.0, requests 2.32.5, gunicorn 23.0.0)
+- `connectors/` - Dynamic connector modules for external services
+  - `gmail_connector.py` - Gmail API integration
+  - `notion_connector.py` - Notion API integration
+  - `slack_connector.py` - Slack SDK integration
+  - `telegram_connector.py` - Telegram Bot API integration
+- `requirements.txt` - Python dependencies with all SDKs
 - `.env.example` - Environment variable template
 - `API_KEY_ROTATION.md` - API key rotation procedure documentation
 
