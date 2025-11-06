@@ -1,0 +1,59 @@
+You are the Replit AI Agent. Implement Docs + Blog infra for Levqor. Do not ask questions. Fail closed on any error and print failing step.
+
+GOAL
+Public markdown docs + simple blog served by Flask, indexed in robots/sitemap.
+
+STEPS
+1) Deps
+- pip install markdown2
+
+2) Structure
+- Create folders:
+  docs/
+    index.md            # Overview
+    api.md              # Endpoints summary
+    connectors.md       # Gmail/Notion/Slack/Telegram usage
+  blog/
+    001-launch.md       # Launch post
+    002-roadmap.md      # Roadmap
+  data/
+    blog_index.json     # auto-generated index
+
+3) Seed content (brief but valid)
+- docs/index.md: title, product summary, links to api/connectors
+- docs/api.md: list key endpoints with brief descriptions
+- docs/connectors.md: env vars + sample payloads for each connector
+- blog/001-launch.md: “Levqor is live”
+- blog/002-roadmap.md: “Q4 roadmap”
+
+4) Server routes (Flask, in run.py)
+- import markdown2, os, json, glob
+- GET /docs            -> HTML list of docs
+- GET /docs/<name>     -> render docs/<name>.md to HTML (404 if missing)
+- GET /blog            -> return JSON index (slug, title, date)
+- GET /blog/<slug>     -> render blog/<slug>.md to HTML (404 if missing)
+- Generate blog_index.json at startup from blog/*.md (filename → slug)
+
+5) Robots + sitemap
+- Ensure public/robots.txt exists and allows crawling.
+- Generate public/sitemap.xml with URLs:
+  /docs, /docs/index, /docs/api, /docs/connectors,
+  /blog, /blog/001-launch, /blog/002-roadmap
+- Update any existing sitemap to include these entries (no duplicates).
+
+6) Security
+- Serve markdown as sanitized HTML (no raw script tags).
+- Set Content-Type text/html; charset=utf-8.
+
+7) Verify
+- 200: /docs, /docs/index, /docs/api, /docs/connectors
+- 200: /blog, /blog/001-launch
+- 200: /public/robots.txt, /public/sitemap.xml
+
+8) Output summary
+Print:
+{
+ "docs":["/docs","/docs/index","/docs/api","/docs/connectors"],
+ "blog":["/blog","/blog/001-launch","/blog/002-roadmap"],
+ "sitemap":"/public/sitemap.xml"
+}

@@ -906,12 +906,17 @@ scheduler.add_job(
     trigger=CronTrigger(hour=0, minute=0, timezone='UTC'),
     id='daily_backup',
     name='Daily Database Backup',
-    replace_existing=True
+    replace_existing=True,
+    misfire_grace_time=900
 )
 
 try:
     scheduler.start()
     log.info("APScheduler started - Daily backup scheduled for 00:00 UTC")
+    
+    log.info("Running initial backup validation...")
+    run_backup_job()
+    log.info("Initial backup validation complete")
 except Exception as e:
     log.exception(f"Failed to start APScheduler: {e}")
 

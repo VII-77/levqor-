@@ -52,3 +52,20 @@ The application is deployed to Replit Autoscale, utilizing Gunicorn as the produ
 - **SQLite**: In-memory and disk-based database for user profiles.
 - **Gunicorn**: Production WSGI HTTP server.
 - **markdown2**: Markdown to HTML rendering.
+
+## Recent Changes
+**November 6, 2025**
+- **Automated Backup System Enhancement:**
+  - Added `misfire_grace_time=900` (±15 min tolerance) to APScheduler configuration
+  - Implemented immediate backup validation on server startup
+  - Verified daily backup schedule (00:00 UTC) working correctly
+  - Backup format: `backups/backup_YYYYMMDDTHHMMSSZ.db`
+  - All backup activity logged to `logs/backup.log`
+  - Script location: `scripts/auto_backup.sh` (executable)
+
+- **Marketing Assets & SEO:**
+  - Created `marketing/landing_snippets.json` with headlines, CTAs, USPs
+  - Added `marketing/testimonials.json` with customer reviews
+  - Implemented `/api/v1/marketing/summary` endpoint for analytics
+  - Added OpenGraph and Twitter Card meta tags to all docs/blog pages
+  - Enhanced social sharing capabilities across documentation
