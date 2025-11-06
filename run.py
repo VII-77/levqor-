@@ -169,8 +169,8 @@ def health():
 def ready():
     return jsonify({"ok": True, "status": "ready", "ts": int(time())}), 200
 
-@app.get("/status")
-def status():
+@app.route("/status", endpoint="status_check")
+def status_check():
     return jsonify({"ok": True, "status": "operational", "ts": int(time())}), 200
 
 @app.get("/public/metrics")
