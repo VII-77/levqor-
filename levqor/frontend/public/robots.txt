@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Allow: /pricing
+Allow: /signup
+Allow: /dashboard
+Allow: /privacy
+Allow: /terms
+
+Sitemap: https://levqor.ai/sitemap.xml
