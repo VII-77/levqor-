@@ -2000,6 +2000,174 @@ def instantiate_template(template_id):
         log.exception(f"Template instantiate error: {template_id}")
         return jsonify({"error": str(e)}), 500
 
+@app.post("/api/v1/assistant/chat")
+def ai_assistant_chat():
+    """AI-powered setup assistant for guiding users"""
+    user, error = require_user()
+    if error:
+        return error
+    
+    try:
+        body = request.get_json(silent=True) or {}
+        user_message = body.get("message", "").strip()
+        context = body.get("context", {})
+        
+        if not user_message:
+            return jsonify({"error": "message required"}), 400
+        
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        if not openai_key:
+            return jsonify({
+                "response": "AI assistant is currently unavailable. Please check the documentation or contact support.",
+                "suggestions": [
+                    "View template library",
+                    "Read API documentation",
+                    "Check dashboard"
+                ]
+            }), 200
+        
+        import openai
+        openai.api_key = openai_key
+        
+        system_prompt = """You are a helpful AI assistant for Levqor, an automation platform.
+
+Help users:
+- Set up their first workflow
+- Understand how credits work (1 credit per automation)
+- Connect integrations (Slack, Notion, Gmail)
+- Choose the right template
+- Debug issues
+
+Be concise, friendly, and actionable. Provide specific next steps.
+
+Available templates:
+- Daily HN Digest (Slack notifications)
+- Contact Form Handler (Notion + Slack)
+- Email Digest (AI summarization)
+- GitHub Release Notifier
+- Customer Onboarding Sequence
+
+Pricing: $9 for 100 credits, never expire."""
+
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"User context: {json.dumps(context)}\n\nQuestion: {user_message}"}
+            ],
+            max_tokens=300,
+            temperature=0.7
+        )
+        
+        assistant_message = response.choices[0].message.content
+        
+        suggestions = [
+            "Show me templates",
+            "How do I connect Slack?",
+            "What can I automate?"
+        ]
+        
+        log.info(f"AI assistant query from {user['user_id']}: {user_message[:50]}...")
+        
+        return jsonify({
+            "response": assistant_message,
+            "suggestions": suggestions
+        }), 200
+        
+    except Exception as e:
+        log.exception("AI assistant error")
+        return jsonify({
+            "response": "I'm having trouble right now. Please try again or check our documentation.",
+            "error": str(e)
+        }), 500
+
+@app.get("/api/v1/assistant/quick-start")
+def ai_assistant_quick_start():
+    """Get personalized quick start guide based on user state"""
+    user, error = require_user()
+    if error:
+        return error
+    
+    try:
+        db = get_db()
+        user_data = db.execute("SELECT * FROM users WHERE id = ?", (user["user_id"],)).fetchone()
+        
+        if not user_data:
+            return jsonify({"error": "User not found"}), 404
+        
+        credits_remaining = user_data[6] if len(user_data) > 6 else 50
+        credits_used = 50 - credits_remaining
+        
+        if credits_used == 0:
+            guide = {
+                "title": "Welcome! Let's get started 🚀",
+                "steps": [
+                    {
+                        "title": "Choose a template",
+                        "description": "Browse our pre-built automation templates",
+                        "action": "View Templates",
+                        "url": "/builder"
+                    },
+                    {
+                        "title": "Or use AI builder",
+                        "description": "Describe what you want to automate in plain English",
+                        "action": "Try AI Builder",
+                        "url": "/builder?mode=ai"
+                    },
+                    {
+                        "title": "Connect an integration",
+                        "description": "Slack, Notion, or Gmail - takes 30 seconds",
+                        "action": "Connect",
+                        "url": "/dashboard#integrations"
+                    }
+                ],
+                "tip": "Start with the Daily HN Digest template - it's the easiest!"
+            }
+        elif credits_used < 10:
+            guide = {
+                "title": "Nice start! Here's what's next 👏",
+                "steps": [
+                    {
+                        "title": "Try another template",
+                        "description": "You've used a few credits. Try the Contact Form Handler next",
+                        "action": "Browse Templates",
+                        "url": "/builder"
+                    },
+                    {
+                        "title": "Customize with AI",
+                        "description": "Take an existing template and modify it with AI",
+                        "action": "Open AI Builder",
+                        "url": "/builder?mode=ai"
+                    }
+                ],
+                "tip": f"You have {credits_remaining} credits left - keep experimenting!"
+            }
+        else:
+            guide = {
+                "title": "You're getting the hang of it! 🎯",
+                "steps": [
+                    {
+                        "title": "Build from scratch",
+                        "description": "Ready to create custom workflows? Use our visual builder",
+                        "action": "Visual Builder",
+                        "url": "/builder?mode=visual"
+                    },
+                    {
+                        "title": "Upgrade for more",
+                        "description": f"You have {credits_remaining} credits. Get 100 more for $9",
+                        "action": "View Pricing",
+                        "url": "/pricing"
+                    }
+                ],
+                "tip": "Pro tip: Combine multiple actions in one workflow to save credits!"
+            }
+        
+        return jsonify(guide), 200
+        
+    except Exception as e:
+        log.exception("Quick start error")
+        return jsonify({"error": str(e)}), 500
+
 def run_backup_job():
     """
     Execute automated database backup using scripts/auto_backup.sh
