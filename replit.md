@@ -108,3 +108,6 @@ The application is deployed to Replit Autoscale, utilizing Gunicorn as the produ
   - Created DNS configuration guide: `docs/DNS_BACKEND.txt` with CNAME/A record instructions
   - Created domain prep script: `scripts/domain_prep.sh` for CORS logging
   - All endpoints tested and operational with proper CORS headers
+  - Frontend prepared: canonical links set to app.levqor.ai, production build verified
+  - Created `docs/DNS_FRONTEND.txt` with Cloudflare/Vercel CNAME configuration
+  - Installed Node.js 20 toolchain for Next.js development
