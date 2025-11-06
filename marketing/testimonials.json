@@ -1,0 +1,46 @@
+{
+  "testimonials": [
+    {
+      "id": 1,
+      "name": "Sarah Chen",
+      "role": "CTO",
+      "company": "AutomateAI",
+      "avatar_url": "https://i.pravatar.cc/150?img=1",
+      "rating": 5,
+      "text": "Levqor saved us 3 months of development time. We went from prototype to production in 2 weeks. The built-in Stripe integration and email system were game-changers.",
+      "highlight": "Saved 3 months of development",
+      "date": "2025-10-15",
+      "verified": true
+    },
+    {
+      "id": 2,
+      "name": "Marcus Rodriguez",
+      "role": "Founder",
+      "company": "WorkflowOS",
+      "avatar_url": "https://i.pravatar.cc/150?img=12",
+      "rating": 5,
+      "text": "The connector pack is incredible. Gmail, Slack, Notion integration out of the box? Sign me up. We've processed over 500K jobs without a single issue.",
+      "highlight": "500K+ jobs processed",
+      "date": "2025-09-22",
+      "verified": true
+    },
+    {
+      "id": 3,
+      "name": "Emily Thompson",
+      "role": "Lead Engineer",
+      "company": "DataFlow Inc",
+      "avatar_url": "https://i.pravatar.cc/150?img=5",
+      "rating": 5,
+      "text": "Finally, a backend API that just works. The security is enterprise-grade, the docs are clear, and the API is beautifully designed. Worth every penny.",
+      "highlight": "Enterprise-grade security",
+      "date": "2025-11-01",
+      "verified": true
+    }
+  ],
+  "aggregate": {
+    "average_rating": 5.0,
+    "total_reviews": 47,
+    "five_star_percentage": 96,
+    "would_recommend": 98
+  }
+}
