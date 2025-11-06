@@ -1,0 +1,118 @@
+You are the Replit AI Agent. Queue and execute the Levqor “Deferred Backlog” (15 items) ONLY AFTER Option-A is complete.
+
+GATE
+- Option-A completion signal = file `docs/OPTION_A_DONE` containing `status: complete` OR health endpoint `/status` includes `"option_a":"complete"`.
+- If not complete → print "WAITING: Option-A incomplete" and exit 0.
+
+GLOBAL RULES
+- Fail closed on any error; print failing step and file.
+- Never print secrets. Redact IDs except last 6 chars.
+- Log every step to `logs/upgrade_backlog.log` with timestamps.
+- Before each task: create checkpoint in `backups/YYMMDD_HHMM/<task>/`.
+- Verify `/ready`, `/status`, `/ops/selftest`, `/billing/health` after each task.
+- If verification fails → auto-rollback from checkpoint and stop.
+
+BACKLOG (15 TASKS)
+
+[Infra & Reliability]
+1) Autoscaling refinement:
+   - Detect Replit cold starts; add fallback worker on Railway (or local worker pool).
+   - Add health pinger (UptimeRobot config snippet to docs).
+   - Output: `config/scale.json` and `docs/AUTOSCALE.md`.
+
+2) Uptime + error monitoring:
+   - Add Sentry SDK (backend + frontend) behind `SENTRY_DSN` env.
+   - Add BetterStack/health ping URL placeholder to `config/monitoring.json`.
+   - Output: `docs/MONITORING.md`.
+
+3) Optional PostgreSQL path:
+   - Create non-disruptive DB adapter (SQLite primary, Postgres optional).
+   - Migrate schema scripts in `db/migrations/`.
+   - Output: `docs/DB_MIGRATION_README.md`. Do not switch default.
+
+4) Latency dashboard:
+   - Add `/metrics` series (p50/p95 latency, error_rate, req/sec).
+   - Frontend admin page `/admin/latency` with charts (Recharts).
+   - Output: `docs/LATENCY_DASHBOARD.md`.
+
+5) Stripe invoice branding + VAT:
+   - Enable branding assets; add tax rates (EU/UK).
+   - Add customer tax ID capture → pass to Stripe checkout.
+   - Output: `docs/BILLING_TAX.md`.
+
+6) Billing analytics:
+   - Add ChartMogul or bare internal KPIs.
+   - Nightly export job: MRR, churn, ARPA → `data/kpis/*.json`.
+   - Output: `docs/REVENUE_ANALYTICS.md`.
+
+[Operations & Support]
+7) Support chat:
+   - Integrate Crisp (or Intercom) via env flag; add `/legal/cookies` update.
+   - Output: `docs/SUPPORT_CHAT.md`.
+
+8) Onboarding/retention emails:
+   - Resend sequences: D1 welcome, D3 tip, D7 trial-end, D14 check-in.
+   - Scheduler hooks; idempotent send logs `logs/retention.log`.
+   - Output: `docs/EMAIL_SEQUENCES.md`.
+
+9) System status dashboard:
+   - Public `/status/live` page (uptime, incidents, current version).
+   - Incident markdowns under `status/incidents/*.md`.
+   - Output: `docs/STATUS_SITE.md`.
+
+10) UI/UX polish:
+   - Design tokens, spacing scale, motion presets.
+   - Add trust badges/testimonials components.
+   - Output: `docs/UI_GUIDE.md`.
+
+11) Video demos + copy:
+   - Add `/demos` section with placeholders and embed support.
+   - Seed copy in `docs/MARKETING_COPY.md`.
+   - Output: `public/opengraph.png` and OG tags checked.
+
+12) Churn & usage analytics:
+   - DB tables or JSONL for session counts, active days, downgrades/cancels.
+   - Admin `/admin/usage` charts.
+   - Output: `docs/USAGE_ANALYTICS.md`.
+
+13) Feedback → Notion/DB:
+   - `/feedback` API + front widget.
+   - Store to Supabase or local file; optional Notion API integration.
+   - Output: `docs/FEEDBACK.md`.
+
+[Security & Scaling]
+14) Multi-region fallback:
+   - Create Vercel/Railway mirror config; health-checked failover doc.
+   - Output only docs and scripts; no DNS switch.
+   - `docs/MULTIREGION_ROLLOVER.md`.
+
+15) Performance tests:
+   - Add k6 scripts in `perf/`; CI job `perf_smoke` with thresholds.
+   - Output: `docs/PERF_TESTING.md`.
+
+EXECUTION FLOW
+- Step 0: Check gate. If incomplete → print status and exit.
+- Phase A: Tasks 1–4 (infra). Verify after each. If any fail → rollback + stop.
+- Phase B: Tasks 5–6 (billing analytics). Verify `/billing/health`.
+- Phase C: Tasks 7–9 (support/status). Verify `/status/live` 200.
+- Phase D: Tasks 10–13 (UX/feedback). Verify front build 200.
+- Phase E: Tasks 14–15 (scaling/perf). Run k6 smoke; save report.
+
+VERIFICATION SNIPPETS (run after each phase)
+- `curl -fsS /ready && curl -fsS /status && curl -fsS /ops/selftest`
+- `curl -fsS /billing/health | jq -e '.billing_enabled==true'`
+- `test -f docs/*.md` for newly created docs.
+- Frontend build check (if applicable): 200 on `/` and `/status/live`.
+
+OUTPUT
+- Append each task result to `docs/UPGRADE_TRACKER.md` (status, duration, artifact paths).
+- On completion, generate `docs/PHASE2_BACKLOG_REPORT.md` with:
+  - Task table, pass/fail, artifacts, rollback points.
+  - Open risks and next recommended priorities.
+
+SAFETY
+- Do not alter core billing logic, scheduler, or existing Option-A artifacts.
+- No secret values printed. Redact IDs except last 6 chars.
+- If any external SaaS cost is required and no key present → skip task, mark `SKIPPED(no_key)` and continue.
+
+Begin by checking the Option-A gate. If complete, start Task 1.

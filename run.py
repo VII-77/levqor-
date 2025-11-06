@@ -2168,6 +2168,174 @@ def ai_assistant_quick_start():
         log.exception("Quick start error")
         return jsonify({"error": str(e)}), 500
 
+@app.post("/api/v1/teams/create")
+def create_team():
+    """Create a new organization/team"""
+    user, error = require_user()
+    if error:
+        return error
+    
+    try:
+        body = request.get_json(silent=True) or {}
+        name = body.get("name", "").strip()
+        
+        if not name:
+            return jsonify({"error": "name required"}), 400
+        
+        db = get_db()
+        org_id = uuid4().hex
+        now = time()
+        
+        db.execute("""
+            INSERT INTO organizations (id, name, owner_user_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (org_id, name, user["user_id"], now, now))
+        
+        db.execute("""
+            INSERT INTO team_members (id, org_id, user_id, role, joined_at)
+            VALUES (?, ?, ?, 'owner', ?)
+        """, (uuid4().hex, org_id, user["user_id"], now))
+        
+        db.commit()
+        
+        log.info(f"Team created: {org_id} by {user['user_id']}")
+        
+        return jsonify({
+            "org_id": org_id,
+            "name": name,
+            "role": "owner"
+        }), 200
+        
+    except Exception as e:
+        log.exception("Team creation error")
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/api/v1/teams")
+def list_teams():
+    """List all teams user belongs to"""
+    user, error = require_user()
+    if error:
+        return error
+    
+    try:
+        db = get_db()
+        
+        teams = db.execute("""
+            SELECT o.id, o.name, o.credits_pool, tm.role, o.created_at
+            FROM organizations o
+            JOIN team_members tm ON o.id = tm.org_id
+            WHERE tm.user_id = ?
+            ORDER BY o.created_at DESC
+        """, (user["user_id"],)).fetchall()
+        
+        result = []
+        for team in teams:
+            result.append({
+                "org_id": team[0],
+                "name": team[1],
+                "credits_pool": team[2],
+                "role": team[3],
+                "created_at": team[4]
+            })
+        
+        return jsonify({"teams": result}), 200
+        
+    except Exception as e:
+        log.exception("List teams error")
+        return jsonify({"error": str(e)}), 500
+
+@app.post("/api/v1/teams/<org_id>/invite")
+def invite_team_member(org_id):
+    """Invite someone to join the team"""
+    user, error = require_user()
+    if error:
+        return error
+    
+    try:
+        db = get_db()
+        
+        member = db.execute("""
+            SELECT role FROM team_members 
+            WHERE org_id = ? AND user_id = ?
+        """, (org_id, user["user_id"])).fetchone()
+        
+        if not member or member[0] not in ['owner', 'admin']:
+            return jsonify({"error": "Insufficient permissions"}), 403
+        
+        body = request.get_json(silent=True) or {}
+        email = body.get("email", "").strip()
+        role = body.get("role", "member")
+        
+        if not email:
+            return jsonify({"error": "email required"}), 400
+        
+        if role not in ['admin', 'member']:
+            return jsonify({"error": "Invalid role"}), 400
+        
+        invite_id = uuid4().hex
+        now = time()
+        expires = now + (7 * 86400)  # 7 days
+        
+        db.execute("""
+            INSERT OR REPLACE INTO team_invitations 
+            (id, org_id, email, role, invited_by, created_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (invite_id, org_id, email, role, user["user_id"], now, expires))
+        
+        db.commit()
+        
+        log.info(f"Team invite sent: {org_id} -> {email} as {role}")
+        
+        return jsonify({
+            "invite_id": invite_id,
+            "status": "sent"
+        }), 200
+        
+    except Exception as e:
+        log.exception(f"Team invite error: {org_id}")
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/api/v1/teams/<org_id>/members")
+def list_team_members(org_id):
+    """List all members of a team"""
+    user, error = require_user()
+    if error:
+        return error
+    
+    try:
+        db = get_db()
+        
+        is_member = db.execute("""
+            SELECT 1 FROM team_members WHERE org_id = ? AND user_id = ?
+        """, (org_id, user["user_id"])).fetchone()
+        
+        if not is_member:
+            return jsonify({"error": "Not a team member"}), 403
+        
+        members = db.execute("""
+            SELECT tm.user_id, u.email, u.name, tm.role, tm.joined_at
+            FROM team_members tm
+            JOIN users u ON tm.user_id = u.id
+            WHERE tm.org_id = ?
+            ORDER BY tm.joined_at ASC
+        """, (org_id,)).fetchall()
+        
+        result = []
+        for member in members:
+            result.append({
+                "user_id": member[0],
+                "email": member[1],
+                "name": member[2],
+                "role": member[3],
+                "joined_at": member[4]
+            })
+        
+        return jsonify({"members": result}), 200
+        
+    except Exception as e:
+        log.exception(f"List team members error: {org_id}")
+        return jsonify({"error": str(e)}), 500
+
 def run_backup_job():
     """
     Execute automated database backup using scripts/auto_backup.sh
