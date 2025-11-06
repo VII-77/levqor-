@@ -12,6 +12,12 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 
 ## Recent Changes
 **November 6, 2025**
+- **Marketing Assets & Analytics:**
+  - Created marketing/ folder with landing_snippets.json (headlines, CTAs, USPs)
+  - Added testimonials.json with 3 customer reviews + aggregate stats
+  - Implemented /api/v1/marketing/summary endpoint (visits, conversions, MRR, active users)
+  - Added OpenGraph + Twitter Card meta tags to all docs/blog pages
+  - Meta tags include title, description, image, URL for social sharing
 - **Documentation & Blog Infrastructure:**
   - Created docs/ folder with markdown files (index.md, api.md, connectors.md)
   - Created blog/ folder with index.json and 001-launch-story.md
