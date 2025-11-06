@@ -8,11 +8,15 @@ import json
 import os
 import logging
 import sys
+import subprocess
 import stripe
 import notifier
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 log = logging.getLogger("levqor")
+backup_log = logging.getLogger("levqor.backup")
 
 app = Flask(__name__, 
     static_folder='public',
@@ -606,6 +610,46 @@ The Levqor Team
             )
     except Exception as e:
         log.exception(f"Error handling failed payment: {e}")
+
+def run_backup_job():
+    """
+    Execute automated database backup using scripts/auto_backup.sh
+    Scheduled to run daily at 00:00 UTC
+    """
+    try:
+        backup_log.info("Starting scheduled database backup")
+        
+        result = subprocess.run(
+            ["bash", "scripts/auto_backup.sh"],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        if result.returncode == 0:
+            backup_log.info(f"Backup completed successfully: {result.stdout.strip()}")
+        else:
+            backup_log.error(f"Backup failed with exit code {result.returncode}: {result.stderr.strip()}")
+            
+    except subprocess.TimeoutExpired:
+        backup_log.error("Backup job timed out after 60 seconds")
+    except Exception as e:
+        backup_log.exception(f"Backup job failed with exception: {e}")
+
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(
+    func=run_backup_job,
+    trigger=CronTrigger(hour=0, minute=0, timezone='UTC'),
+    id='daily_backup',
+    name='Daily Database Backup',
+    replace_existing=True
+)
+
+try:
+    scheduler.start()
+    log.info("APScheduler started - Daily backup scheduled for 00:00 UTC")
+except Exception as e:
+    log.exception(f"Failed to start APScheduler: {e}")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

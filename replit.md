@@ -93,6 +93,13 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 - `.env.example` - Environment variable template
 - `API_KEY_ROTATION.md` - API key rotation procedure documentation
 
+### Automated Backup System
+- `scripts/auto_backup.sh` - Automated database backup script
+- APScheduler BackgroundScheduler running in run.py
+- Daily backups at 00:00 UTC (CronTrigger)
+- Backup logs: logs/backup.log
+- Backups stored: backups/backup_YYYYMMDDTHHMMSSZ.db
+
 ### Email System
 - `notifier.py` - Email module with Resend API integration
 - `test_email.py` - Test email sending functionality
@@ -128,15 +135,25 @@ python scripts/validate_levqor.py
 On success, you'll see: `🟢 COCKPIT GREEN — Levqor backend validated`
 
 #### Database Backup
-Create consistent backups of the SQLite database:
 
+**Automated Backups (APScheduler):**
+- Daily backups run automatically at 00:00 UTC
+- Scheduled via APScheduler BackgroundScheduler
+- Executes `scripts/auto_backup.sh` via subprocess
+- Logs to application stdout and `logs/backup.log`
+- Fail-closed error handling with timeout (60s)
+
+**Manual Backup:**
 ```bash
-# Backup the database
+# Manual backup via script
+bash scripts/auto_backup.sh
+
+# Legacy backup script (uses sqlite3 .backup)
 ./scripts/backup_db.sh
 
 # Backups are stored in backups/ directory with timestamps
-# Format: backups/levqor-YYYY-MM-DD-HHMMSS.db
-# Note: Script uses sqlite3 .backup if available, otherwise copies DB + WAL/SHM files
+# Automated format: backups/backup_YYYYMMDDTHHMMSSZ.db
+# Manual format: backups/levqor-YYYY-MM-DD-HHMMSS.db
 ```
 
 ### API Endpoints
@@ -245,12 +262,16 @@ Create consistent backups of the SQLite database:
 - URL and field validation with length constraints
 - Structured logging for all requests
 - Database backup script for consistent snapshots
+- **Automated Backups**: APScheduler running daily at 00:00 UTC
 - API key rotation support with dual-set validation
 - OpenAPI 3.0 documentation at /public/openapi.json
 - Well-known files (security.txt, robots.txt)
 - **Email System**: Resend + Cloudflare Email Routing configured (pending domain verification)
   - Branded addresses: support@, billing@, no-reply@, security@levqor.ai
   - Secrets configured: RESEND_API_KEY, RECEIVING_EMAIL
+- **Connector Pack**: Gmail, Notion, Slack, Telegram integrations active
+  - Dynamic endpoint: /api/v1/connect/<name>
+  - All connectors tested and operational
 
 ## Next Phase
 - **Email System Completion:**
