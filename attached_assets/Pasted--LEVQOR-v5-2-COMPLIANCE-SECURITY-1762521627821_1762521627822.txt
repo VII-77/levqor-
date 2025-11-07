@@ -1,0 +1,138 @@
+# ===========================================================
+#  LEVQOR v5.2 | COMPLIANCE + SECURITY HARDENING UPGRADE
+# ===========================================================
+
+# --- 1. GDPR USER-DELETION ENDPOINT --------------------------
+cat > api/user_delete.py <<'EOF'
+from flask import Blueprint,request,jsonify
+import sqlite3,os
+bp=Blueprint("user_delete",__name__)
+
+@bp.route("/api/user/delete",methods=["POST"])
+def delete_user():
+    token=request.headers.get("Authorization")
+    if not token: return jsonify(error="unauthorized"),401
+    email=request.json.get("email")
+    if not email: return jsonify(error="missing email"),400
+    conn=sqlite3.connect('levqor.db');cur=conn.cursor()
+    cur.execute("DELETE FROM users WHERE email=?",(email,))
+    conn.commit();conn.close()
+    return jsonify(status="deleted",email=email)
+EOF
+echo "from api.user_delete import bp as user_delete_bp; app.register_blueprint(user_delete_bp)" >> run.py
+
+# --- 2. DATABASE FIELD ENCRYPTION (pgcrypto-like) ------------
+cat > db/encrypt_fields.py <<'EOF'
+import sqlite3,base64,hashlib
+from cryptography.fernet import Fernet
+key_file="secret.key"
+if not os.path.exists(key_file):
+    open(key_file,"wb").write(Fernet.generate_key())
+fernet=Fernet(open(key_file,"rb").read())
+def encrypt_field(val): return fernet.encrypt(val.encode()).decode()
+def decrypt_field(val): return fernet.decrypt(val.encode()).decode()
+def encrypt_emails():
+    conn=sqlite3.connect('levqor.db');cur=conn.cursor()
+    rows=cur.execute("SELECT id,email FROM users WHERE email NOT LIKE 'enc:%'").fetchall()
+    for i,e in rows:
+        cur.execute("UPDATE users SET email=? WHERE id=?",(f"enc:"+encrypt_field(e),i))
+    conn.commit();conn.close()
+if __name__=="__main__": encrypt_emails()
+EOF
+python3 db/encrypt_fields.py
+
+# --- 3. OFF-SITE BACKUP UPLOAD (Drive via gdrive CLI) --------
+cat > scripts/upload_backup.sh <<'EOF'
+#!/bin/bash
+set -e
+BACKUP=$(ls -t backups/db_* | head -1)
+DEST=$(date +%F)_$(basename $BACKUP)
+gdrive upload --parent "$GDRIVE_FOLDER_ID" "$BACKUP" --name "$DEST"
+echo "[✓] Uploaded $DEST to Google Drive"
+EOF
+chmod +x scripts/upload_backup.sh
+echo "0 2 * * 1 bash scripts/upload_backup.sh >> logs/drive_upload.log 2>&1" >> crontab.txt
+
+# --- 4. REFERRAL FRAUD GUARD --------------------------------
+cat > api/referral_guard.py <<'EOF'
+from flask import request
+import sqlite3
+def is_allowed_signup(ip,email):
+    conn=sqlite3.connect('levqor.db');cur=conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM users WHERE ip=?",(ip,))
+    c=cur.fetchone()[0]; conn.close()
+    if c>3: return False
+    domain=email.split("@")[-1]
+    if domain in ("mailinator.com","tempmail.com"): return False
+    return True
+EOF
+
+# --- 5. REFUND ENDPOINT --------------------------------------
+cat > api/refund.py <<'EOF'
+from flask import Blueprint,request,jsonify
+import stripe,os
+bp=Blueprint("refund",__name__)
+stripe.api_key=os.getenv("STRIPE_SECRET_KEY")
+
+@bp.route("/api/admin/refund",methods=["POST"])
+def refund():
+    if request.headers.get("Authorization")!=os.getenv("ADMIN_TOKEN"):
+        return jsonify(error="unauthorized"),401
+    charge=request.json.get("charge_id")
+    try:
+        r=stripe.Refund.create(charge=charge)
+        return jsonify(status="ok",refund_id=r.id)
+    except Exception as e:
+        return jsonify(error=str(e)),400
+EOF
+echo "from api.refund import bp as refund_bp; app.register_blueprint(refund_bp)" >> run.py
+
+# --- 6. UNSUBSCRIBE FOOTER FOR EMAILS -------------------------
+cat > templates/email_footer.html <<'EOF'
+<hr>
+<p style="font-size:12px;color:#666">
+If you no longer wish to receive emails, click 
+<a href="{{ unsubscribe_link }}">unsubscribe</a>.
+</p>
+EOF
+
+# --- 7. DAILY COST + UPTIME REPORT ----------------------------
+cat > scripts/daily_cost_report.py <<'EOF'
+import os,requests,datetime,json
+report=["LEVQOR DAILY REPORT "+datetime.date.today().isoformat()]
+try:
+    s=requests.get("https://api.stripe.com/v1/balance",
+                   auth=(os.getenv("STRIPE_SECRET_KEY"),"")).json()
+    report.append(f"Stripe balance: {s.get('available',[{'amount':0}])[0]['amount']/100:.2f} USD")
+except Exception as e: report.append("Stripe: "+str(e))
+try:
+    m=requests.get("http://localhost:5000/metrics").text
+    uptime=[l for l in m.splitlines() if "uptime_seconds" in l][-1]
+    report.append(uptime)
+except Exception as e: report.append("Metrics: "+str(e))
+text="\n".join(report)
+print(text)
+if os.getenv("TELEGRAM_BOT_TOKEN"):
+    requests.post(f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/sendMessage",
+                  data={"chat_id":os.getenv('TELEGRAM_CHAT_ID'),"text":text})
+EOF
+echo "0 9 * * * python3 scripts/daily_cost_report.py >> logs/daily_report.log 2>&1" >> crontab.txt
+
+# --- AUTO-VERIFICATION ---------------------------------------
+cat > verify_v5_2.sh <<'EOF'
+#!/bin/bash
+echo "=== VERIFYING LEVQOR v5.2 ==="
+for f in api/user_delete.py db/encrypt_fields.py scripts/upload_backup.sh api/refund.py templates/email_footer.html scripts/daily_cost_report.py; do
+  [ -f "$f" ] && echo "✓ $f present" || echo "✗ $f missing"
+done
+python3 - <<PY
+import sqlite3; c=sqlite3.connect('levqor.db'); 
+print("Users encrypted:", any('enc:' in r[0] for r in c.execute('SELECT email FROM users').fetchall()))
+PY
+echo "[✓] Verification complete."
+EOF
+chmod +x verify_v5_2.sh
+
+echo "[✓] Levqor v5.2 Compliance + Security Hardening implemented."
+echo "Run: bash verify_v5_2.sh  # confirm all modules active"
+# ===========================================================
