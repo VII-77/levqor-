@@ -328,7 +328,7 @@ def ready():
 
 @app.route("/status", endpoint="status_check")
 def status_check():
-    return jsonify({"ok": True, "status": "operational", "ts": int(time())}), 200
+    return jsonify({"status": "pass"}), 200
 
 @app.get("/public/metrics")
 def public_metrics():
