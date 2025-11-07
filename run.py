@@ -16,6 +16,13 @@ import markdown2
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+# Phase-4 Hardening Imports
+from middleware.security_headers import init_security_headers
+from observability.sentry_init import init_sentry
+from observability.enhanced_metrics import get_enhanced_metrics, record_latency, record_error, reset_daily_metrics
+from queue.worker import get_queue_health, retry_dlq_jobs
+from webhooks.verify import webhook_auth_required
+
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 log = logging.getLogger("levqor")
 backup_log = logging.getLogger("levqor.backup")
@@ -3133,6 +3140,45 @@ def actions_health():
         }
     }), 200
 
+@app.get("/ops/queue_health")
+def queue_health():
+    """Get queue system health status (Phase-4)"""
+    try:
+        health = get_queue_health()
+        return jsonify(health), 200
+    except Exception as e:
+        log.exception("Queue health check failed")
+        return jsonify({"error": str(e), "mode": "error"}), 500
+
+@app.post("/ops/dlq/retry")
+def dlq_retry():
+    """Retry failed jobs from DLQ (Phase-4, admin only)"""
+    rate_error = throttle()
+    if rate_error:
+        return rate_error
+    
+    api_key = request.headers.get("X-API-Key") or request.args.get("api_key")
+    if not api_key or api_key not in API_KEYS:
+        return jsonify({"error": "unauthorized"}), 401
+    
+    try:
+        limit = int(request.args.get("limit", 10))
+        result = retry_dlq_jobs(limit)
+        return jsonify(result), 200
+    except Exception as e:
+        log.exception("DLQ retry failed")
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/metrics")
+def prometheus_metrics():
+    """Enhanced Prometheus metrics endpoint (Phase-4)"""
+    try:
+        metrics = get_enhanced_metrics()
+        return metrics, 200, {"Content-Type": "text/plain; version=0.0.4"}
+    except Exception as e:
+        log.exception("Metrics generation failed")
+        return f"# ERROR: {str(e)}\n", 500, {"Content-Type": "text/plain"}
+
 def run_backup_job():
     """
     Execute automated database backup using scripts/auto_backup.sh
@@ -3158,7 +3204,21 @@ def run_backup_job():
     except Exception as e:
         backup_log.exception(f"Backup job failed with exception: {e}")
 
+def run_postgres_backup_job():
+    """PostgreSQL backup job (Phase-4)"""
+    try:
+        from db.backup import create_backup
+        backup_log.info("Starting PostgreSQL backup")
+        result = create_backup()
+        if result.get("success"):
+            backup_log.info(f"PostgreSQL backup successful: {result.get('file')}")
+        else:
+            backup_log.error(f"PostgreSQL backup failed: {result.get('error')}")
+    except Exception as e:
+        backup_log.exception(f"PostgreSQL backup job failed: {e}")
+
 scheduler = BackgroundScheduler(daemon=True)
+
 scheduler.add_job(
     func=run_backup_job,
     trigger=CronTrigger(hour=0, minute=0, timezone='UTC'),
@@ -3168,15 +3228,38 @@ scheduler.add_job(
     misfire_grace_time=900
 )
 
+scheduler.add_job(
+    func=run_postgres_backup_job,
+    trigger=CronTrigger(hour=3, minute=0, timezone='UTC'),
+    id='postgres_backup',
+    name='PostgreSQL Backup (Phase-4)',
+    replace_existing=True,
+    misfire_grace_time=900
+)
+
+scheduler.add_job(
+    func=reset_daily_metrics,
+    trigger=CronTrigger(hour=0, minute=5, timezone='UTC'),
+    id='reset_daily_metrics',
+    name='Reset Daily Metrics (Phase-4)',
+    replace_existing=True
+)
+
 try:
     scheduler.start()
-    log.info("APScheduler started - Daily backup scheduled for 00:00 UTC")
+    log.info("APScheduler started - Backups scheduled for 00:00 and 03:00 UTC")
     
     log.info("Running initial backup validation...")
     run_backup_job()
     log.info("Initial backup validation complete")
 except Exception as e:
     log.exception(f"Failed to start APScheduler: {e}")
+
+init_security_headers(app)
+log.info("Phase-4 security headers middleware initialized")
+
+init_sentry(app)
+log.info("Phase-4 Sentry integration initialized")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

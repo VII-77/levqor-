@@ -5,5 +5,10 @@
   "MULTI_TENANT_ENABLED": false,
   "CONNECTORS_V2_ENABLED": true,
   "ADVANCED_METRICS_ENABLED": false,
-  "CANARY_MODE": false
+  "CANARY_MODE": false,
+  "SECURITY_HEADERS_ENABLED": false,
+  "RATELIMIT_ENABLED": false,
+  "WEBHOOK_VERIFY_ALL": false,
+  "ABUSE_GUARDS_ENABLED": false,
+  "_comment_phase4": "Phase-4 Hardening flags - Enable after testing"
 }
