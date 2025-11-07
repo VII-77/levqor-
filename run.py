@@ -898,6 +898,63 @@ def ops_flags():
     from config import get_all_flags
     return jsonify(get_all_flags()), 200
 
+@app.get("/metrics")
+def metrics_endpoint():
+    """Prometheus-style metrics endpoint for monitoring"""
+    try:
+        from job_queue.tasks import get_queue_health
+        queue_health = get_queue_health()
+        queue_depth = queue_health.get('depth', 0)
+        queue_failed = queue_health.get('failed', 0)
+    except:
+        queue_depth = 0
+        queue_failed = 0
+    
+    db_ok = 1
+    try:
+        db = get_db()
+        db.execute("SELECT 1").fetchone()
+    except:
+        db_ok = 0
+    
+    jobs_total = len(JOBS)
+    jobs_today = len([j for j in JOBS.values() if time() - j.get("created_at", 0) < 86400])
+    
+    error_count = queue_failed
+    error_rate = (error_count / jobs_total * 100) if jobs_total > 0 else 0
+    
+    metrics_lines = [
+        "# HELP jobs_run_total Total number of jobs processed",
+        "# TYPE jobs_run_total counter",
+        f"jobs_run_total {jobs_total}",
+        "",
+        "# HELP jobs_run_today Jobs processed in last 24 hours",
+        "# TYPE jobs_run_today gauge",
+        f"jobs_run_today {jobs_today}",
+        "",
+        "# HELP queue_depth Current queue depth",
+        "# TYPE queue_depth gauge",
+        f"queue_depth {queue_depth}",
+        "",
+        "# HELP queue_failed Number of failed jobs in queue",
+        "# TYPE queue_failed gauge",
+        f"queue_failed {queue_failed}",
+        "",
+        "# HELP error_rate Percentage of failed jobs",
+        "# TYPE error_rate gauge",
+        f"error_rate {error_rate:.2f}",
+        "",
+        "# HELP database_status Database health status (1=up, 0=down)",
+        "# TYPE database_status gauge",
+        f"database_status {db_ok}",
+        "",
+        "# HELP api_version Application version info",
+        "# TYPE api_version gauge",
+        f'api_version{{version="{VERSION}",build="{BUILD}"}} 1',
+    ]
+    
+    return "\n".join(metrics_lines), 200, {"Content-Type": "text/plain; version=0.0.4"}
+
 @app.get("/api/v1/marketing/summary")
 def marketing_summary():
     """
