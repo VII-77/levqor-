@@ -1,0 +1,9 @@
+{
+  "PG_ENABLED": false,
+  "NEW_QUEUE_ENABLED": false,
+  "BUILDER_ENABLED": false,
+  "MULTI_TENANT_ENABLED": false,
+  "CONNECTORS_V2_ENABLED": true,
+  "ADVANCED_METRICS_ENABLED": false,
+  "CANARY_MODE": false
+}

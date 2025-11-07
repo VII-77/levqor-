@@ -888,6 +888,16 @@ def ops_health():
         return guard
     return jsonify({"ok": True, "ts": int(time())}), 200
 
+@app.get("/api/v1/ops/flags")
+def ops_flags():
+    """Get all feature flags"""
+    guard = require_key()
+    if guard:
+        return guard
+    
+    from config import get_all_flags
+    return jsonify(get_all_flags()), 200
+
 @app.get("/api/v1/marketing/summary")
 def marketing_summary():
     """
