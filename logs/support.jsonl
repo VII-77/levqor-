@@ -1,1 +1,2 @@
 {"ts": 1762489042949.4094, "email": "test@example.com", "subject": "Test support", "message": "This is a verification test", "url": "/", "ip": "127.0.0.1"}
+{"ts": 1762489559026.0222, "email": "smoketest@example.com", "subject": "CLI smoke test", "message": "Testing from CLI", "url": "/test", "ip": "127.0.0.1"}
