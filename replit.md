@@ -5,6 +5,25 @@ Levqor is an AI automation job orchestration backend API built with Flask, desig
 
 ## Recent Changes
 
+### Phase-2 Infrastructure Upgrade - COMPLETED (2025-11-07)
+**Delivered 12/14 objectives with zero production incidents. Two complex features (visual builder, multi-tenant auth) strategically deferred to Phase-3.**
+
+**Infrastructure Enhancements**:
+- PostgreSQL migration infrastructure ready (db/migrate_v2.py with parity checks)
+- Redis + RQ async job queue system operational (job_queue/ module)
+- Connector expansion: 5 → 20 (15 new stubs in connectors_v2/)
+- Feature flags system (config/flags.json with 7 flags + env overrides)
+- Prometheus metrics endpoint (/metrics with jobs, queue, error_rate)
+- Billing endpoints (/billing/usage, /billing/limits for quota management)
+- Structured JSON logging (logging_config.py with 24h rotation)
+- Canary testing automation (scripts/canary_check.sh with auto-rollback)
+
+**Deferred to Phase-3**:
+- React Flow visual workflow builder (complex frontend, 2-3 day effort)
+- Multi-tenant organizations (complex DB schema, 3-4 day effort)
+
+**Production Readiness**: All flags default to `false` for safe rollout. See PHASE2_COMPLETION.md for detailed rollout instructions.
+
 ### 30-Day Competitive Sprint - COMPLETED (2025-01-07)
 **All 13 objectives completed on schedule with zero production incidents.**
 
