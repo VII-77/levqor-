@@ -20,6 +20,7 @@ app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_CONTENT_LENGTH", 512 
 
 BUILD = os.environ.get("BUILD_ID", "dev")
 VERSION = "1.0.0"
+START_TIME = time()
 
 DB_PATH = os.environ.get("SQLITE_PATH", os.path.join(os.getcwd(), "levqor.db"))
 _db_connection = None
@@ -378,6 +379,57 @@ def ops_health():
     if guard:
         return guard
     return jsonify({"ok": True, "ts": int(time())}), 200
+
+@app.get("/ops/uptime")
+def ops_uptime():
+    """Public endpoint for system uptime metrics"""
+    uptime_seconds = int(time() - START_TIME)
+    return jsonify({
+        "uptime_seconds": uptime_seconds,
+        "start_time": int(START_TIME),
+        "current_time": int(time()),
+        "version": VERSION,
+        "build": BUILD
+    }), 200
+
+@app.get("/ops/queue_health")
+def ops_queue_health():
+    """Public endpoint for job queue health monitoring"""
+    queued = sum(1 for j in JOBS.values() if j["status"] == "queued")
+    running = sum(1 for j in JOBS.values() if j["status"] == "running")
+    completed = sum(1 for j in JOBS.values() if j["status"] == "succeeded")
+    failed = sum(1 for j in JOBS.values() if j["status"] == "failed")
+    total = len(JOBS)
+    
+    return jsonify({
+        "healthy": True,
+        "queue_stats": {
+            "queued": queued,
+            "running": running,
+            "completed": completed,
+            "failed": failed,
+            "total": total
+        },
+        "timestamp": int(time())
+    }), 200
+
+@app.get("/billing/health")
+def billing_health():
+    """Public endpoint to verify Stripe integration health"""
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
+    stripe_webhook = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    
+    has_stripe_key = bool(stripe_key and stripe_key.startswith("sk_"))
+    has_webhook_secret = bool(stripe_webhook and len(stripe_webhook) > 10)
+    
+    healthy = has_stripe_key and has_webhook_secret
+    
+    return jsonify({
+        "healthy": healthy,
+        "stripe_key_configured": has_stripe_key,
+        "webhook_secret_configured": has_webhook_secret,
+        "timestamp": int(time())
+    }), 200 if healthy else 503
 
 OPENAPI = {
     "openapi": "3.0.0",
