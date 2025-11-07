@@ -1,0 +1,32 @@
+{
+  "generated_at": "2025-11-07T14:17:09.097230",
+  "stripe": {
+    "available_balance": 0.0,
+    "pending_balance": -0.23,
+    "currency": "GBP",
+    "total_revenue_30d": 1.0
+  },
+  "openai": {
+    "estimated_cost_30d": 0.0,
+    "note": "Estimated from usage tracking"
+  },
+  "database": {
+    "size_mb": 0.14,
+    "total_users": 2,
+    "total_partners": 1,
+    "pending_commissions": 20.0
+  },
+  "infrastructure": {
+    "replit_autoscale": 0,
+    "redis_upstash": 10,
+    "postgresql_neon": 0,
+    "resend_email": 0,
+    "estimated_monthly": 20
+  },
+  "summary": {
+    "total_estimated_monthly_cost": 20.23,
+    "revenue_30d": 1.0,
+    "net_30d": -19.0,
+    "currency": "USD"
+  }
+}
