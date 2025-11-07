@@ -1,1 +1,1 @@
-{"/_not-found/page":"/_not-found","/signin/page":"/signin","/signin/verify/page":"/signin/verify","/page":"/","/api/auth/[...nextauth]/route":"/api/auth/[...nextauth]","/dashboard/page":"/dashboard"}
+{"/_not-found/page":"/_not-found","/page":"/","/signin/page":"/signin","/signin/verify/page":"/signin/verify","/api/auth/[...nextauth]/route":"/api/auth/[...nextauth]","/dashboard/page":"/dashboard"}
