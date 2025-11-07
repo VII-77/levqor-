@@ -1041,22 +1041,6 @@ def ops_uptime():
         }
     }), 200 if db_ok else 503
 
-@app.get("/ops/queue_health")
-def ops_queue_health():
-    """Queue health endpoint for monitoring"""
-    try:
-        from job_queue.tasks import get_queue_health
-        health = get_queue_health()
-        status_code = 200 if health['status'] in ['healthy', 'unavailable'] else 503
-        return jsonify(health), status_code
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'error': str(e),
-            'depth': 0,
-            'fail_rate': 0,
-            'retry_count': 0
-        }), 503
 
 @app.get("/api/v1/ops/health")
 def ops_health():
@@ -1952,6 +1936,29 @@ def billing_limits():
         "limits": limits,
         "unlimited": plan == "paid"
     }), 200
+
+@app.get("/billing/health")
+def billing_health():
+    """Health check for billing system (Stripe integration)"""
+    try:
+        if not stripe.api_key:
+            return jsonify({"status": "unconfigured", "stripe": False}), 503
+        
+        balance = stripe.Balance.retrieve()
+        
+        return jsonify({
+            "status": "operational",
+            "stripe": True,
+            "available": balance.available,
+            "pending": balance.pending
+        }), 200
+    except Exception as e:
+        log.exception("Billing health check failed")
+        return jsonify({
+            "status": "degraded",
+            "stripe": False,
+            "error": str(e)
+        }), 503
 
 @app.post("/billing/webhook")
 def stripe_webhook():

@@ -10,7 +10,7 @@ fail(){ printf "❌ %s\n" "$1"; }
 echo "[Endpoints]"
 curl -fsS http://localhost:5000/status >/dev/null && ok "/status" || fail "/status"
 curl -fsS http://localhost:5000/ops/uptime >/dev/null && ok "/ops/uptime" || fail "/ops/uptime"
-curl -fsS http://localhost:5000/ops/queue >/dev/null && ok "/ops/queue" || warn "/ops/queue (requires Redis)"
+curl -fsS http://localhost:5000/ops/queue_health >/dev/null && ok "/ops/queue_health" || warn "/ops/queue_health (requires Redis)"
 
 # ---------- Core secrets present ----------
 echo "[Secrets]"
