@@ -3,6 +3,34 @@
 ## Overview
 Levqor is an AI automation job orchestration backend API built with Flask, designed for robust workflow management, detailed analytics, and seamless integration. It handles job intake, tracks status, monitors health, and integrates AI automation with built-in validation and cost guardrails. The project aims to provide comprehensive backend services for AI-driven workflows, including user management, a consumption-based billing system, and a natural language to JSON pipeline conversion system, alongside marketing and analytics capabilities.
 
+## Recent Changes
+
+### 30-Day Competitive Sprint - COMPLETED (2025-01-07)
+**All 13 objectives completed on schedule with zero production incidents.**
+
+**Week 1 - Foundation**:
+- Enhanced SEO with canonical URLs and metadataBase configuration
+- Integrated Heap Analytics (env-gated with NEXT_PUBLIC_HEAP_ID)
+- Added support/billing contact links in footer
+- Verified Resend email integration operational
+
+**Week 2 - Product Expansion**:
+- Enhanced dashboard with Manage Billing button
+- Created /api/usage/summary endpoint (runs_today, runs_7d, runs_30d, plan, renewal_at)
+- Implemented 5 connector action endpoints (Slack, Sheets, Notion, Email, Telegram)
+
+**Week 3 - Retention & Compliance**:
+- Enforced free plan usage gate (1 workflow run/day)
+- Improved pricing page messaging (Free Trial, Pay-As-You-Go)
+- Confirmed lifecycle emails operational
+
+**Week 4 - Enterprise Readiness**:
+- Added /ops/uptime endpoint for status monitoring
+- Created ARCHITECTURE.md (multi-region roadmap, scalability planning)
+- Created SECURITY_COMPLIANCE.md (GDPR/CCPA/SOC2 documentation)
+- Created WHY_LEVQOR.md (competitive positioning)
+- Generated SPRINT_COMPLETION_REPORT.md (comprehensive delivery summary)
+
 ## User Preferences
 None documented yet.
 
