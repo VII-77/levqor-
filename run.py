@@ -837,6 +837,33 @@ def users_lookup():
         return jsonify({"error": "not_found", "email": email}), 404
     return jsonify(u), 200
 
+@app.get("/ops/uptime")
+def ops_uptime():
+    """Uptime endpoint for status page monitoring"""
+    from time import time as get_time
+    start_time = get_time()
+    
+    db_ok = False
+    try:
+        db = get_db()
+        db.execute("SELECT 1").fetchone()
+        db_ok = True
+    except Exception:
+        pass
+    
+    response_time = (get_time() - start_time) * 1000
+    
+    return jsonify({
+        "status": "operational" if db_ok else "degraded",
+        "timestamp": get_time(),
+        "response_time_ms": round(response_time, 2),
+        "version": VERSION,
+        "services": {
+            "database": "operational" if db_ok else "down",
+            "api": "operational"
+        }
+    }), 200 if db_ok else 503
+
 @app.get("/api/v1/ops/health")
 def ops_health():
     guard = require_key()
