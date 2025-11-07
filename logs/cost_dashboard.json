@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-07T14:17:09.097230",
+  "generated_at": "2025-11-07T14:31:38.522189",
   "stripe": {
     "available_balance": 0.0,
     "pending_balance": -0.23,
@@ -11,7 +11,7 @@
     "note": "Estimated from usage tracking"
   },
   "database": {
-    "size_mb": 0.14,
+    "size_mb": 0.15,
     "total_users": 2,
     "total_partners": 1,
     "pending_commissions": 20.0
