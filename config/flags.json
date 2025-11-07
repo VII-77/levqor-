@@ -9,6 +9,6 @@
   "SECURITY_HEADERS_ENABLED": true,
   "RATELIMIT_ENABLED": true,
   "WEBHOOK_VERIFY_ALL": true,
-  "ABUSE_GUARDS_ENABLED": false,
-  "_comment_phase4": "Phase-4 Hardening flags - Security headers + Rate limiting + Webhook verification enabled"
+  "ABUSE_GUARDS_ENABLED": true,
+  "_comment_phase4": "Phase-4 Hardening flags - All security features enabled (headers, rate limiting, webhooks, abuse guards)"
 }
