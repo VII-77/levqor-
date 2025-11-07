@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
+import MonitoringWrapper from '@/components/MonitoringWrapper'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -69,6 +70,7 @@ export default function RootLayout({
             <p style={styles.footerText}>© 2025 Levqor. All rights reserved.</p>
           </div>
         </footer>
+        <MonitoringWrapper />
       </body>
     </html>
   )
