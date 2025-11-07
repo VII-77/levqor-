@@ -4,9 +4,12 @@ import datetime
 conn = sqlite3.connect('levqor.db')
 cursor = conn.cursor()
 
-rows = cursor.execute(
-    "SELECT id, email, pending_commission FROM partners WHERE pending_commission >= 50"
-).fetchall()
+rows = cursor.execute("""
+    SELECT p.id, u.email, p.pending_commission 
+    FROM partners p
+    JOIN users u ON p.user_id = u.id
+    WHERE p.pending_commission >= 50
+""").fetchall()
 
 if not rows:
     print("[ℹ] No partners eligible for payout (minimum $50)")
