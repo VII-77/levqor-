@@ -1,0 +1,87 @@
+cat > connectivity_sweep.sh <<'SH'
+#!/bin/bash
+set -e
+echo "=== LEVQOR CONNECTIVITY SWEEP ==="
+
+ok(){ printf "✅ %s\n" "$1"; }
+warn(){ printf "⚠️  %s\n" "$1"; }
+fail(){ printf "❌ %s\n" "$1"; }
+
+# ---------- Backend endpoints ----------
+echo "[Endpoints]"
+curl -fsS http://localhost:5000/status >/dev/null && ok "/status" || fail "/status"
+curl -fsS http://localhost:5000/ops/uptime >/dev/null && ok "/ops/uptime" || fail "/ops/uptime"
+curl -fsS http://localhost:5000/ops/queue >/dev/null && ok "/ops/queue" || warn "/ops/queue (requires Redis)"
+
+# ---------- Core secrets present ----------
+echo "[Secrets]"
+check_env(){ [ -n "${!1}" ] && ok "$1 present" || warn "$1 missing"; }
+check_env STRIPE_SECRET_KEY
+check_env DAILY_SPEND_LIMIT
+check_env JWT_SECRET
+check_env REDIS_URL
+check_env SENTRY_DSN
+check_env RESEND_API_KEY
+check_env TELEGRAM_BOT_TOKEN
+check_env TELEGRAM_CHAT_ID
+check_env GDRIVE_FOLDER_ID
+
+# ---------- Stripe live check ----------
+echo "[Stripe]"
+if [ -n "$STRIPE_SECRET_KEY" ]; then
+  curl -fsS https://api.stripe.com/v1/balance -u "$STRIPE_SECRET_KEY": >/dev/null && ok "Stripe API reachable" || fail "Stripe API"
+  curl -fsS http://localhost:5000/billing/health >/dev/null && ok "/billing/health" || warn "/billing/health"
+else
+  warn "SKIP Stripe (STRIPE_SECRET_KEY missing)"
+fi
+
+# ---------- Email (Resend) ----------
+echo "[Email/Resend]"
+if [ -n "$RESEND_API_KEY" ]; then
+  python3 - <<'PY' || exit 1
+import os,requests,sys
+k=os.environ.get("RESEND_API_KEY")
+r=requests.get("https://api.resend.com/emails",headers={"Authorization":f"Bearer {k}"} )
+print("OK Resend" if r.status_code in (200,401) else "FAIL Resend")
+PY
+else
+  warn "SKIP Resend (RESEND_API_KEY missing)"
+fi
+
+# ---------- Redis ----------
+echo "[Redis]"
+if [ -n "$REDIS_URL" ]; then
+  python3 - <<'PY' || exit 1
+import os,redis,sys
+r=redis.from_url(os.environ["REDIS_URL"])
+try: r.ping(); print("OK Redis")
+except Exception as e: print("FAIL Redis:",e); sys.exit(1)
+PY
+else
+  warn "SKIP Redis (REDIS_URL missing)"
+fi
+
+# ---------- Backups (Drive) ----------
+echo "[Backups]"
+if [ -n "$GDRIVE_FOLDER_ID" ]; then
+  [ -f scripts/backup_cycle.sh ] && ok "Backup script present" || fail "backup_cycle.sh missing"
+else
+  warn "SKIP Drive upload (GDRIVE_FOLDER_ID missing)"
+fi
+
+# ---------- Webhooks signatures set? ----------
+echo "[Webhook secrets]"
+check_env STRIPE_WEBHOOK_SECRET
+
+# ---------- Frontend ↔ Backend ----------
+echo "[Frontend -> Backend]"
+if [ -n "$NEXT_PUBLIC_API_URL" ]; then
+  echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL"
+  curl -fsS "$NEXT_PUBLIC_API_URL/status" >/dev/null && ok "Frontend points to backend URL" || fail "Frontend API URL unreachable"
+else
+  warn "NEXT_PUBLIC_API_URL missing (set in Vercel env)"
+fi
+
+echo "=== SWEEP DONE ==="
+SH
+chmod +x connectivity_sweep.sh
