@@ -37,3 +37,4 @@ build = ["sh", "-c", "BUILD_ID=2025-11-05.1"]
 
 [nix]
 channel = "stable-25_05"
+packages = ["yakut"]
