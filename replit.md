@@ -1,9 +1,59 @@
 # Levqor Backend
 
 ## Overview
-Levqor is an enterprise-ready AI automation job orchestration backend API built with Flask, featuring comprehensive security hardening, async queue processing, real-time monitoring, and robust abuse controls. The platform provides production-grade workflow management with detailed analytics, seamless integration, built-in validation, and cost guardrails.
+Levqor is an enterprise-ready AI automation job orchestration backend API built with Flask, featuring comprehensive security hardening, async queue processing, real-time monitoring, partner/affiliate system, and robust abuse controls. The platform provides production-grade workflow management with revenue tracking, detailed analytics, seamless integration, built-in validation, and cost guardrails.
 
 ## Recent Changes
+
+### Phase-5 Brand & Scale Launch - COMPLETED (2025-11-07)
+**Transformed Levqor into a scalable growth engine with partner commission system and revenue analytics.**
+
+**Partner/Affiliate System**:
+- Partner registration API with unique codes (`LEVQOR-ABC12345`)
+- 20% commission tracking on all referred revenue
+- Automatic conversion recording via Stripe webhook
+- Partner dashboard with conversion funnel metrics
+- Admin payout processing ($50 minimum)
+
+**Admin Revenue Dashboard**:
+- Real-time MRR/ARR tracking
+- Active partner performance metrics
+- Pending commission calculations
+- Recent conversions table
+- Auto-refresh every 60 seconds
+- Access: `http://localhost:5000/admin/revenue`
+
+**Enhanced Analytics**:
+- Conversion funnel tracking (visitors → signups → paid)
+- Cohort retention analysis (8-week rolling)
+- Revenue per user metrics
+- Growth rate calculations
+
+**Marketing Launch Package**:
+- ProductHunt launch copy (tagline, description, maker story)
+- LinkedIn posts (2 versions: technical + founder audiences)
+- Email launch sequence (3-part series)
+- SEO optimization checklist
+- Press kit with company info
+- Social media templates (Twitter thread, Reddit post)
+- Complete launch timeline
+
+**New API Endpoints**:
+- `POST /api/partners/create` - Create partner account
+- `GET /api/partners/stats` - Partner performance metrics
+- `GET /api/partners/dashboard` - Conversion funnel data
+- `POST /api/partners/payout` - Process commission payment (admin)
+- `GET /api/admin/revenue-stats` - Revenue dashboard data
+- `GET /api/admin/analytics/funnel` - Conversion analytics
+- `GET /api/admin/analytics/cohorts` - Retention analysis
+
+**Database Schema**:
+- `partners` - Partner accounts with commission tracking
+- `partner_conversions` - Revenue-generating events
+- `partner_payouts` - Commission payment records
+- `users.is_admin` - Admin access control
+
+**Status**: 🟢 Production-ready for public launch
 
 ### Phase-4 Security Hardening - COMPLETED (2025-11-07)
 **Implemented enterprise-grade security, monitoring, and resilience features.**
