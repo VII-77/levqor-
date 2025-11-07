@@ -23,3 +23,4 @@ rq
 sentry-sdk
 sqlalchemy
 cryptography
+pyjwt
