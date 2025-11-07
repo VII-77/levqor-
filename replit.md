@@ -41,6 +41,15 @@ This system converts natural language descriptions into executable JSON pipeline
 ### Referral System
 A referral system rewards users with credits for valid sign-ups through their referral codes, tracking referrals via a dedicated endpoint and logging.
 
+### Monitoring & Observability
+A vendor-free monitoring system provides error tracking and support messaging with graceful degradation. The system uses JSONL-based logging (`logs/errors.jsonl`, `logs/support.jsonl`) and automatically switches to vendor solutions when environment variables are configured:
+- **Error Tracking**: `/api/v1/errors/report` logs frontend errors with stack traces, auto-delegates to Sentry when `SENTRY_DSN` is set
+- **Support Inbox**: `/api/v1/support/message` captures support requests, forwards via email when `RECEIVING_EMAIL` is configured
+- **Health Endpoints**: `/api/v1/errors/health` and `/api/v1/support/health` for monitoring system status
+- **Frontend Integration**: Global error handlers (`errorReporter.ts`) and floating support widget (`SupportWidget.tsx`)
+- **Rate Limiting**: Built-in throttling prevents abuse (uses global `throttle()` function)
+- **Cost Optimization**: Works at $0 cost with internal logging, upgrades seamlessly to premium services
+
 ### Marketing Frontends
 **levqor-web/ (Original)**: A Next.js 14 application with a landing page, pricing, analytics dashboard, and reusable React components. It includes automatic event logging.
 **levqor-site/ (Public Landing - NEW)**: Another Next.js 14 application serving as the public marketing site with hero sections, features, legal pages, and a blog. It features full SEO optimization, mobile responsiveness, and optional Plausible Analytics.
@@ -64,3 +73,5 @@ The application is deployed to Replit Autoscale using Gunicorn. Next.js frontend
 - **Gunicorn**: Production WSGI HTTP server.
 - **markdown2**: Markdown to HTML rendering.
 - **OpenAI API**: For AI workflow generation.
+- **Sentry SDK**: Optional error tracking (activates when `SENTRY_DSN` is set).
+- **Crisp**: Optional support chat (activates when `NEXT_PUBLIC_CRISP_WEBSITE_ID` is set).
