@@ -1,9 +1,45 @@
 # Levqor Backend
 
 ## Overview
-Levqor is an AI automation job orchestration backend API built with Flask, designed for robust workflow management, detailed analytics, and seamless integration. It handles job intake, tracks status, monitors health, and integrates AI automation with built-in validation and cost guardrails. The project aims to provide comprehensive backend services for AI-driven workflows, including user management, a consumption-based billing system, and a natural language to JSON pipeline conversion system, alongside marketing and analytics capabilities.
+Levqor is an enterprise-ready AI automation job orchestration backend API built with Flask, featuring comprehensive security hardening, async queue processing, real-time monitoring, and robust abuse controls. The platform provides production-grade workflow management with detailed analytics, seamless integration, built-in validation, and cost guardrails.
 
 ## Recent Changes
+
+### Phase-4 Security Hardening - COMPLETED (2025-11-07)
+**Implemented enterprise-grade security, monitoring, and resilience features.**
+
+**Security Enhancements**:
+- Security headers middleware (CSP, HSTS, X-Frame-Options, etc.)
+- Rate limiting per-API-key and per-IP with Redis token buckets
+- Webhook signature verification (Stripe, Slack, Telegram, generic HMAC)
+- Abuse controls with device binding and referral anti-fraud
+
+**Infrastructure**:
+- Async job queue with RQ, DLQ, retry logic, and idempotency
+- Enhanced Prometheus metrics (P95 latency, queue depth, error rates, connector 5xx, AI costs)
+- PostgreSQL backup automation with restore verification (RTO target ≤30min)
+- Graceful degradation for all features (works without Redis/Sentry)
+
+**Observability**:
+- Sentry integration with auto-activation
+- Enhanced `/metrics` endpoint with 7+ new metrics
+- `/ops/queue_health` and `/ops/dlq/retry` admin endpoints
+- Structured error tracking and daily metrics reset
+
+**Documentation**:
+- OPERATIONS.md (on-call runbook, incident response)
+- SECURITY_HARDENING.md (headers, webhooks, rotation policies)
+- PHASE4_ROLLBACK_PLAN.md (emergency procedures, feature flags)
+- Comprehensive test suite (security headers, rate limiting, queue/DLQ)
+
+**Feature Flags (All Default False)**:
+- NEW_QUEUE_ENABLED → Async queue processing
+- SECURITY_HEADERS_ENABLED → CSP, HSTS, etc.
+- RATELIMIT_ENABLED → Per-key and per-IP limits
+- WEBHOOK_VERIFY_ALL → Signature verification
+- ABUSE_GUARDS_ENABLED → Device binding, fraud detection
+
+**Status**: 🟢 Production-ready, all features with graceful degradation
 
 ### Phase-3 Quick Launch - COMPLETED (2025-11-07)
 **Deployed v3.0-release as production-ready, self-sustaining SaaS platform in <1 hour.**
