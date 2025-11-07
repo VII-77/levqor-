@@ -21,7 +21,9 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
   - Created sign-in flow with email verification
   - Using existing RESEND_API_KEY secret (manual integration, not Replit connector)
   - Frontend source code now available in `levqor-site/` directory
-  - Deployment script: `deploy_frontend.sh`
+  - Deployment script: `deploy_frontend_complete.sh`
+  - SessionProvider wrapper for client-side auth
+  - Complete documentation in `AUTH_SETUP_COMPLETE.md`
 - **Operational Monitoring Added:**
   - Created `public_smoke.sh` automated testing script (10/10 tests passing)
   - Added operational health endpoints (Phase-4 enhanced versions deployed)
@@ -97,7 +99,9 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
   - `package.json` - Next.js dependencies (next 14.2.15, next-auth 5.0.0-beta.22, resend 4.0.1)
   - `.env.local` - Local development environment variables
   - `.gitignore` - Git ignore configuration
-- `deploy_frontend.sh` - Vercel deployment script with environment variable setup
+- `deploy_frontend_complete.sh` - Complete Vercel deployment script with build and env setup
+- `setup_auth.sh` - Authentication setup script (fixed for NextAuth v5 compatibility)
+- `AUTH_SETUP_COMPLETE.md` - Complete authentication setup documentation
 
 ### Public Pages
 - `public/legal/privacy.html` - Privacy policy

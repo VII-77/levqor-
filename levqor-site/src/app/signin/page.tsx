@@ -1,64 +1,52 @@
-import { signIn } from '@/auth'
+"use client";
+import { useState } from "react";
+import { signIn } from "next-auth/react";
 
-export default function SignIn() {
+export default function SignIn(){
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  
+  async function submit(e: React.FormEvent){
+    e.preventDefault();
+    await signIn("resend", { email, callbackUrl: "/dashboard" });
+    setSubmitted(true);
+  }
+  
   return (
-    <main style={{ 
-      minHeight: '100vh', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-    }}>
-      <div style={{ 
-        background: 'white', 
-        padding: '3rem', 
-        borderRadius: '12px', 
-        boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-        maxWidth: '400px',
-        width: '100%'
-      }}>
-        <h1 style={{ marginBottom: '0.5rem', fontSize: '2rem' }}>Welcome to Levqor</h1>
-        <p style={{ color: '#666', marginBottom: '2rem' }}>Sign in with your email to continue</p>
-        
-        <form action={async (formData: FormData) => {
-          'use server'
-          await signIn('resend', formData)
-        }}>
-          <input
-            type="email"
-            name="email"
-            placeholder="your@email.com"
-            required
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              border: '1px solid #ddd',
-              borderRadius: '6px',
-              fontSize: '1rem',
-              marginBottom: '1rem'
-            }}
-          />
-          <button
-            type="submit"
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              background: '#0070f3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '1rem',
-              fontWeight: '500'
-            }}
-          >
-            Send Magic Link
-          </button>
-        </form>
-        
-        <p style={{ marginTop: '1.5rem', fontSize: '0.875rem', color: '#666', textAlign: 'center' }}>
-          We&apos;ll send you a magic link to sign in
-        </p>
-      </div>
+    <main className="p-8 max-w-md mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Sign in to Levqor</h1>
+      
+      {!submitted ? (
+        <>
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <input 
+                type="email" 
+                className="border border-gray-300 p-3 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                placeholder="you@example.com" 
+                value={email} 
+                onChange={e => setEmail(e.target.value)} 
+                required
+              />
+            </div>
+            <button 
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors" 
+              type="submit"
+            >
+              Send magic link
+            </button>
+          </form>
+          <p className="text-sm text-gray-600 mt-4">
+            You'll receive an email from {process.env.NEXT_PUBLIC_AUTH_FROM || "no-reply@levqor.ai"}
+          </p>
+        </>
+      ) : (
+        <div className="text-center">
+          <div className="text-4xl mb-4">📧</div>
+          <h2 className="text-xl font-semibold mb-2">Check your email</h2>
+          <p className="text-gray-600">A sign-in link has been sent to {email}</p>
+        </div>
+      )}
     </main>
-  )
+  );
 }
