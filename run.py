@@ -2948,7 +2948,7 @@ def action_telegram_send():
 
 @app.get("/actions/health")
 def actions_health():
-    """Health check showing which connectors are configured"""
+    """Health check showing which connectors are configured (v2 - 20 connectors)"""
     from connectors.replit_connectors import get_notion_token, get_google_sheets_token
     
     connectors = {
@@ -2956,7 +2956,22 @@ def actions_health():
         "notion": bool(get_notion_token() or os.environ.get("NOTION_API_KEY")),
         "sheets": bool(get_google_sheets_token() or (os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") and os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID"))),
         "telegram": bool(os.environ.get("TELEGRAM_BOT_TOKEN")),
-        "email": bool(os.environ.get("RESEND_API_KEY"))
+        "email": bool(os.environ.get("RESEND_API_KEY")),
+        "airtable": bool(os.environ.get("AIRTABLE_API_KEY")),
+        "discord": bool(os.environ.get("DISCORD_WEBHOOK_URL")),
+        "twilio": bool(os.environ.get("TWILIO_ACCOUNT_SID") and os.environ.get("TWILIO_AUTH_TOKEN")),
+        "stripe": bool(os.environ.get("STRIPE_SECRET_KEY")),
+        "github": bool(os.environ.get("GITHUB_TOKEN")),
+        "linear": bool(os.environ.get("LINEAR_API_KEY")),
+        "asana": bool(os.environ.get("ASANA_TOKEN")),
+        "trello": bool(os.environ.get("TRELLO_API_KEY") and os.environ.get("TRELLO_TOKEN")),
+        "monday": bool(os.environ.get("MONDAY_API_KEY")),
+        "clickup": bool(os.environ.get("CLICKUP_API_KEY")),
+        "hubspot": bool(os.environ.get("HUBSPOT_API_KEY")),
+        "salesforce": bool(os.environ.get("SALESFORCE_INSTANCE_URL") and os.environ.get("SALESFORCE_ACCESS_TOKEN")),
+        "zendesk": bool(os.environ.get("ZENDESK_SUBDOMAIN") and os.environ.get("ZENDESK_EMAIL") and os.environ.get("ZENDESK_API_TOKEN")),
+        "intercom": bool(os.environ.get("INTERCOM_ACCESS_TOKEN")),
+        "jira": bool(os.environ.get("JIRA_DOMAIN") and os.environ.get("JIRA_EMAIL") and os.environ.get("JIRA_API_TOKEN"))
     }
     
     configured_count = sum(connectors.values())
