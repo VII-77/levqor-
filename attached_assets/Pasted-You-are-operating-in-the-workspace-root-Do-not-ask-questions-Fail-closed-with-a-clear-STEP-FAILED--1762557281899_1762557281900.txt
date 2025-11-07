@@ -1,0 +1,52 @@
+You are operating in the workspace root. Do not ask questions. Fail closed with a clear STEP FAILED line.
+
+GOAL: Deploy the Levqor Next.js app (auth + dashboard) to https://levqor.ai using Vercel, then verify /, /signin, /dashboard and API wiring.
+
+PREREQS CHECK
+1) Verify files exist: ./levqor-site, ./levqor-site/src/app/signin/page.tsx, ./levqor-site/src/app/dashboard/page.tsx, ./levqor-site/src/app/api/auth/[...nextauth]/route.ts. If any missing → STOP with: "STEP FAILED: missing frontend files".
+2) Check secrets: VERCEL_TOKEN, RESEND_API_KEY must be present. If missing → STOP with "STEP FAILED: missing VERCEL_TOKEN or RESEND_API_KEY".
+3) Confirm domain: target = levqor.ai, api = https://api.levqor.ai.
+
+DEPLOY
+4) Ensure Node + Vercel CLI:
+   - if `vercel` not found, run: `npm i -g vercel` (capture non-zero exit → "STEP FAILED: vercel cli").
+5) cd levqor-site
+6) Create/update .env.production with:
+   - NEXTAUTH_URL=https://levqor.ai
+   - NEXT_PUBLIC_API_URL=https://api.levqor.ai
+   - AUTH_FROM_EMAIL=no-reply@levqor.ai
+   - NEXT_PUBLIC_AUTH_FROM=no-reply@levqor.ai
+   - NEXTAUTH_SECRET=(generate if absent: base64 urlsafe 32 bytes)
+7) Build: `npm run build` (on error once: `npm i -D @types/node @types/react` then rebuild). If still fails → "STEP FAILED: next build".
+8) Deploy:
+   `vercel --prod --yes --name levqor \
+     -e NEXTAUTH_URL=https://levqor.ai \
+     -e NEXT_PUBLIC_API_URL=https://api.levqor.ai \
+     -e AUTH_FROM_EMAIL=no-reply@levqor.ai \
+     -e NEXT_PUBLIC_AUTH_FROM=no-reply@levqor.ai \
+     -e RESEND_API_KEY=$RESEND_API_KEY \
+     -e NEXTAUTH_SECRET=$(grep NEXTAUTH_SECRET .env.production | cut -d= -f2)`
+   Non-zero exit → "STEP FAILED: vercel deploy".
+
+POST-VERIFY
+9) Wait up to 90s for SSL. Then verify:
+   - GET https://levqor.ai           must be 200
+   - GET https://levqor.ai/signin    must be 200
+   - HEAD https://levqor.ai/dashboard must be 200 or 307 (protected)
+10) API wiring smoke:
+   - GET https://api.levqor.ai/status → {"status":"pass"}
+   - GET https://api.levqor.ai/api/usage/summary → 200 JSON
+   Any failure → print exact failing URL and HTTP code: "STEP FAILED: verify <url> <code>".
+
+OUTPUT
+11) On success, print:
+   "DEPLOY OK
+    Frontend: https://levqor.ai
+    Sign-in:  https://levqor.ai/signin
+    Dashboard: https://levqor.ai/dashboard
+    API: https://api.levqor.ai
+    Next step: open /signin, enter email, click magic link, land on /dashboard."
+
+SECURITY
+- Never echo secrets.
+- Do not modify backend.
