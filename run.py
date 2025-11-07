@@ -131,6 +131,15 @@ def get_db():
         _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_user_id)")
         _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referee_email ON referrals(referee_email)")
         
+        try:
+            _db_connection.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+            _db_connection.commit()
+        except sqlite3.OperationalError:
+            pass
+        
+        from db.schema_partners import upgrade_database
+        upgrade_database(_db_connection)
+        
         _db_connection.execute("""
           CREATE TABLE IF NOT EXISTS usage_daily(
             id TEXT PRIMARY KEY,
@@ -1872,6 +1881,35 @@ The Levqor Team
                 )
                 get_db().commit()
                 log.info(f"User {user_id} payment recorded in database")
+                
+                db = get_db()
+                referral = db.execute("""
+                    SELECT r.referrer_user_id
+                    FROM referrals r
+                    WHERE r.referee_email = ? AND r.credited = 0
+                    LIMIT 1
+                """, (email,)).fetchone()
+                
+                if referral:
+                    referrer_id = referral[0]
+                    partner = db.execute("""
+                        SELECT partner_code FROM partners WHERE user_id = ?
+                    """, (referrer_id,)).fetchone()
+                    
+                    if partner:
+                        partner_code = partner[0]
+                        revenue_amount = amount_total / 100.0
+                        
+                        from api.partners import record_conversion
+                        conversion_recorded = record_conversion(
+                            partner_code=partner_code,
+                            user_id=user_id,
+                            conversion_type="payment",
+                            revenue_amount=revenue_amount
+                        )
+                        
+                        if conversion_recorded:
+                            log.info(f"Partner conversion recorded: partner={partner_code}, revenue=${revenue_amount}")
     
     except Exception as e:
         log.exception(f"Error handling successful payment: {e}")
@@ -2813,6 +2851,54 @@ def support_health():
     except Exception as e:
         log.exception("Support health check failed")
         return jsonify({"inbox": "internal", "status": "error"}), 500
+
+@app.post("/api/partners/create")
+def create_partner_endpoint():
+    """Create or upgrade user to partner status"""
+    from api.partners import create_partner
+    return create_partner()
+
+@app.get("/api/partners/stats")
+def get_partner_stats_endpoint():
+    """Get partner statistics and commission info"""
+    from api.partners import get_partner_stats
+    return get_partner_stats()
+
+@app.get("/api/partners/dashboard")
+def get_partner_dashboard_endpoint():
+    """Get partner dashboard with conversion funnel"""
+    from api.partners import get_partner_dashboard
+    return get_partner_dashboard()
+
+@app.post("/api/partners/payout")
+def process_payout_endpoint():
+    """Admin endpoint to process partner payouts"""
+    from api.partners import process_payout
+    return process_payout()
+
+@app.get("/api/admin/revenue-stats")
+def get_revenue_stats_endpoint():
+    """Get comprehensive revenue statistics"""
+    from api.admin import get_revenue_stats
+    return get_revenue_stats()
+
+@app.get("/api/admin/analytics/funnel")
+def get_analytics_funnel_endpoint():
+    """Get conversion funnel analytics"""
+    from api.admin import get_analytics_funnel
+    return get_analytics_funnel()
+
+@app.get("/api/admin/analytics/cohorts")
+def get_cohort_analysis_endpoint():
+    """Get cohort retention analysis"""
+    from api.admin import get_cohort_analysis
+    return get_cohort_analysis()
+
+@app.get("/admin/revenue")
+def admin_revenue_dashboard():
+    """Serve admin revenue dashboard"""
+    from flask import send_from_directory
+    return send_from_directory('templates/admin', 'revenue.html')
 
 def _log_connector(connector: str, user_or_ip: str, status: str, ms: float, error: str = None):
     """Log connector usage to logs/connectors.log"""
