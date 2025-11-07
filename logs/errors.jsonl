@@ -1,2 +1,3 @@
 {"ts": 1762489042000, "level": "error", "message": "Test error after fix", "stack": "test stack", "url": "/", "userAgent": "curl/test", "release": "unknown", "user_id": "", "ip": "127.0.0.1", "extra": ""}
 {"ts": 1762489557000, "level": "error", "message": "CLI smoke test", "stack": "cli-test", "url": "/test", "userAgent": "curl", "release": "unknown", "user_id": "", "ip": "127.0.0.1", "extra": ""}
+{"ts": 1762489767000, "level": "error", "message": "levqor-ui-test", "stack": "Error: levqor-ui-test\n    at <anonymous>:1:7", "url": "http://localhost:3000/", "userAgent": "Mozilla/5.0 (test)", "release": "levqor", "user_id": "", "ip": "127.0.0.1", "extra": ""}
