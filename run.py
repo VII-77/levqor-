@@ -219,6 +219,8 @@ def intake():
     if not request.is_json:
         return bad_request("Content-Type must be application/json")
     data = request.get_json(silent=True)
+    if data is None:
+        return bad_request("Invalid JSON")
     try:
         validate(instance=data, schema=INTAKE_SCHEMA, format_checker=FormatChecker())
     except ValidationError as e:
