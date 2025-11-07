@@ -1,6 +1,6 @@
 {
   "PG_ENABLED": false,
-  "NEW_QUEUE_ENABLED": false,
+  "NEW_QUEUE_ENABLED": true,
   "BUILDER_ENABLED": false,
   "MULTI_TENANT_ENABLED": false,
   "CONNECTORS_V2_ENABLED": true,
@@ -10,5 +10,5 @@
   "RATELIMIT_ENABLED": true,
   "WEBHOOK_VERIFY_ALL": true,
   "ABUSE_GUARDS_ENABLED": true,
-  "_comment_phase4": "Phase-4 Hardening flags - All security features enabled (headers, rate limiting, webhooks, abuse guards)"
+  "_comment_phase4": "Phase-4 Hardening flags - All security features enabled (headers, rate limiting, webhooks, abuse guards, async queue)"
 }
