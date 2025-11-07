@@ -1,15 +1,18 @@
-import NextAuth from 'next-auth'
-import Resend from 'next-auth/providers/resend'
+import NextAuth from "next-auth"
+import Resend from "next-auth/providers/resend"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Resend({
       apiKey: process.env.RESEND_API_KEY,
-      from: 'no-reply@levqor.ai',
+      from: process.env.AUTH_FROM_EMAIL || "no-reply@levqor.ai",
     }),
   ],
   pages: {
     signIn: '/signin',
-    verifyRequest: '/signin/verify',
+  },
+  session: { 
+    strategy: "jwt",
+    maxAge: 60 * 60,
   },
 })
