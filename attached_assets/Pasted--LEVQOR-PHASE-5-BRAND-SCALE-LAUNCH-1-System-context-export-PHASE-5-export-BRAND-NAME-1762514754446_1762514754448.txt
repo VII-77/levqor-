@@ -1,0 +1,53 @@
+### === LEVQOR PHASE-5 BRAND & SCALE LAUNCH ===
+# 1. System context
+export PHASE=5
+export BRAND_NAME="Levqor"
+export AFFILIATE_COMMISSION=0.20
+export LAUNCH_CHANNELS="ProductHunt,LinkedIn,Email"
+export LOGO_PATH="public/assets/brand/logo.svg"
+
+# 2. Generate marketing & SEO package
+python3 scripts/gen_marketing_pack.py --brand "$BRAND_NAME" \
+  --channels "$LAUNCH_CHANNELS" \
+  --output docs/MARKETING_LAUNCH_COPY.md \
+  --keywords "AI automation, Zapier alternative, workflow automation, Levqor"
+python3 scripts/gen_presskit.py --logo "$LOGO_PATH" --brand "$BRAND_NAME"
+
+# 3. Create /launch landing page (Next.js)
+cd levqor/frontend && \
+  npx create-page launch --title "Levqor Launch" \
+  --cta "Start Free Trial" \
+  --sections "Hero,Features,Pricing,Testimonials,CTA" \
+  --seo "Levqor – automate anything, smarter than Zapier." \
+  && git add . && git commit -m "Add launch page"
+
+# 4. Build affiliate API (backend)
+cd ../backend && \
+  python3 manage_routes.py add POST /partners/create partners.create_partner \
+  python3 manage_routes.py add GET  /partners/stats   partners.stats \
+  python3 manage_routes.py add POST /partners/payout  partners.process_payout \
+  && echo '{"commission_rate":0.20}' > config/affiliate.json
+
+# 5. Connect Stripe webhook → affiliate payout
+python3 scripts/stripe_affiliate_linker.py --commission 20
+
+# 6. Create revenue dashboard
+python3 scripts/gen_revenue_dashboard.py --output templates/admin/revenue.html
+
+# 7. Configure marketing automation
+python3 scripts/setup_email_campaigns.py \
+  --templates email/welcome.html email/trial_end.html email/upgrade.html email/referral.html \
+  --provider resend --brand "$BRAND_NAME"
+
+# 8. Deploy updated frontend + backend
+cd ../frontend && vercel deploy --prod --yes
+cd ../backend && bash verify_production.sh && git push origin main
+
+# 9. Validate full system
+python3 scripts/post_launch_audit.py --check api,seo,affiliate,revenue,email
+
+# 10. Archive phase report
+python3 scripts/archive_phase.py --phase 5 \
+  --summary "Brand & Scale Launch executed, verified, deployed" \
+  --output docs/PHASE5_LAUNCH_REPORT.md
+### === END ===
