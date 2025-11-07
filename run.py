@@ -3,6 +3,7 @@ from jsonschema import validate, ValidationError, FormatChecker
 from time import time
 from uuid import uuid4
 from collections import defaultdict, deque
+from datetime import datetime
 import sqlite3
 import json
 import os
@@ -2353,6 +2354,205 @@ def list_team_members(org_id):
     except Exception as e:
         log.exception(f"List team members error: {org_id}")
         return jsonify({"error": str(e)}), 500
+
+@app.post("/api/v1/errors/report")
+def report_error():
+    """
+    Vendor-free error tracking endpoint
+    Logs errors to JSONL and sends alerts via Resend
+    Auto-disabled when SENTRY_DSN is configured
+    """
+    if os.environ.get("SENTRY_DSN"):
+        return jsonify({"status": "delegated_to_sentry"}), 200
+    
+    rate_error = throttle()
+    if rate_error:
+        return rate_error
+    
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr) or "unknown"
+    now = time()
+    
+    try:
+        body = request.get_json(silent=True) or {}
+        
+        level = body.get("level", "error")
+        message = body.get("message", "")
+        stack = body.get("stack", "")
+        url = body.get("url", "")
+        user_agent = body.get("userAgent", "")
+        ts = body.get("ts", now * 1000)
+        release = body.get("release", "unknown")
+        user_data = body.get("user", {})
+        extra = body.get("extra", {})
+        
+        if not message:
+            return jsonify({"error": "message required"}), 400
+        
+        error_entry = {
+            "ts": ts,
+            "level": level,
+            "message": message[:500],
+            "stack": stack[:2000],
+            "url": url[:500],
+            "userAgent": user_agent[:200],
+            "release": release,
+            "user_id": user_data.get("id", ""),
+            "ip": ip,
+            "extra": json.dumps(extra) if extra else ""
+        }
+        
+        errors_file = "logs/errors.jsonl"
+        os.makedirs("logs", exist_ok=True)
+        
+        with open(errors_file, "a") as f:
+            f.write(json.dumps(error_entry) + "\n")
+        
+        if level in ["error", "fatal"]:
+            try:
+                alert_email = os.environ.get("RECEIVING_EMAIL", "support@levqor.ai")
+                subject = f"FE Error: {message[:120]}"
+                body_html = f"""
+                <h2>Frontend Error Alert</h2>
+                <p><strong>Level:</strong> {level}</p>
+                <p><strong>Message:</strong> {message[:500]}</p>
+                <p><strong>URL:</strong> {url}</p>
+                <p><strong>Release:</strong> {release}</p>
+                <p><strong>Time:</strong> {ts}</p>
+                <pre>{stack[:1000]}</pre>
+                """
+                
+                notifier.send_email(
+                    to_email=alert_email,
+                    subject=subject,
+                    html_body=body_html
+                )
+            except Exception as email_error:
+                log.warning(f"Failed to send error alert email: {email_error}")
+        
+        log.info(f"Error reported: {level} - {message[:100]}")
+        return jsonify({"status": "logged"}), 200
+        
+    except Exception as e:
+        log.exception("Error intake failed")
+        return jsonify({"error": "intake_failed"}), 500
+
+@app.get("/api/v1/errors/health")
+def errors_health():
+    """Health check for error tracking system"""
+    try:
+        if os.environ.get("SENTRY_DSN"):
+            return jsonify({"collector": "sentry", "status": "delegated"}), 200
+        
+        errors_file = "logs/errors.jsonl"
+        count_today = 0
+        
+        if os.path.exists(errors_file):
+            today_str = datetime.fromtimestamp(time()).strftime('%Y-%m-%d')
+            with open(errors_file, "r") as f:
+                for line in f:
+                    try:
+                        entry = json.loads(line)
+                        entry_date = datetime.fromtimestamp(entry.get("ts", 0) / 1000).strftime('%Y-%m-%d')
+                        if entry_date == today_str:
+                            count_today += 1
+                    except:
+                        pass
+        
+        return jsonify({
+            "collector": "internal",
+            "status": "ok",
+            "count_today": count_today
+        }), 200
+    except Exception as e:
+        log.exception("Error health check failed")
+        return jsonify({"collector": "internal", "status": "error"}), 500
+
+@app.post("/api/v1/support/message")
+def support_message():
+    """
+    Vendor-free support inbox endpoint
+    Logs messages and forwards via email
+    Auto-disabled when NEXT_PUBLIC_CRISP_WEBSITE_ID is configured
+    """
+    if os.environ.get("NEXT_PUBLIC_CRISP_WEBSITE_ID"):
+        return jsonify({"status": "use_crisp_widget"}), 200
+    
+    rate_error = throttle()
+    if rate_error:
+        return rate_error
+    
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr) or "unknown"
+    
+    try:
+        body = request.get_json(silent=True) or {}
+        
+        email = body.get("email", "").strip()
+        subject = body.get("subject", "Support Request").strip()
+        message = body.get("message", "").strip()
+        url = body.get("url", "")
+        
+        if not email or not message:
+            return jsonify({"error": "email and message required"}), 400
+        
+        if len(message) > 5000:
+            return jsonify({"error": "message too long"}), 400
+        
+        support_entry = {
+            "ts": time() * 1000,
+            "email": email,
+            "subject": subject,
+            "message": message,
+            "url": url,
+            "ip": ip
+        }
+        
+        support_file = "logs/support.jsonl"
+        os.makedirs("logs", exist_ok=True)
+        
+        with open(support_file, "a") as f:
+            f.write(json.dumps(support_entry) + "\n")
+        
+        try:
+            alert_email = os.environ.get("RECEIVING_EMAIL", "support@levqor.ai")
+            email_subject = f"Support: {subject}"
+            body_html = f"""
+            <h2>New Support Message</h2>
+            <p><strong>From:</strong> {email}</p>
+            <p><strong>Subject:</strong> {subject}</p>
+            <p><strong>URL:</strong> {url}</p>
+            <hr>
+            <p>{message.replace(chr(10), '<br>')}</p>
+            <hr>
+            <p><small>Reply to: {email}</small></p>
+            """
+            
+            notifier.send_email(
+                to_email=alert_email,
+                subject=email_subject,
+                html_body=body_html
+            )
+        except Exception as email_error:
+            log.warning(f"Failed to send support message email: {email_error}")
+            return jsonify({"error": "email_failed"}), 500
+        
+        log.info(f"Support message from {email}: {subject}")
+        return jsonify({"status": "sent"}), 200
+        
+    except Exception as e:
+        log.exception("Support message intake failed")
+        return jsonify({"error": "intake_failed"}), 500
+
+@app.get("/api/v1/support/health")
+def support_health():
+    """Health check for support inbox system"""
+    try:
+        if os.environ.get("NEXT_PUBLIC_CRISP_WEBSITE_ID"):
+            return jsonify({"inbox": "crisp", "status": "delegated"}), 200
+        
+        return jsonify({"inbox": "internal", "status": "ok"}), 200
+    except Exception as e:
+        log.exception("Support health check failed")
+        return jsonify({"inbox": "internal", "status": "error"}), 500
 
 def run_backup_job():
     """

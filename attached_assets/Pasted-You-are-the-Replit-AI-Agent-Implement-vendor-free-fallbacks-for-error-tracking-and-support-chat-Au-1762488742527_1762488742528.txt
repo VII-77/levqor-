@@ -1,0 +1,74 @@
+You are the Replit AI Agent. Implement vendor-free fallbacks for error tracking and support chat. Auto-switch to Sentry/Crisp if envs exist. Fail-closed on error, never print secrets.
+
+GOALS
+A) Error tracking now: frontend hooks → POST /api/v1/errors/report → store + alert (Resend).  
+B) Support widget now: frontend Floating button → POST /api/v1/support/message → email + log.  
+C) Feature flags + graceful vendor switch when SENTRY_DSN or NEXT_PUBLIC_CRISP_WEBSITE_ID later exist.
+
+ENV (existing)
+RESEND_API_KEY=<set> 
+ALERT_EMAIL_TO=support@levqor.ai 
+FRONTEND_URL=https://<your-frontend>
+
+TASKS
+
+1) BACKEND: error intake endpoint
+- Add route POST /api/v1/errors/report
+  body: { ts, level, message, stack, url, userAgent, release, user:{id,email?}, extra? }
+  Validate minimal fields. Redact emails in logs.
+- Append JSONL to logs/errors.jsonl (daily rotate). 
+- If level in ["error","fatal"] → send alert via Resend (subject "FE Error: ${message[:120]}").
+- Add GET /api/v1/errors/health -> {collector:"ok", count_today:n}.
+
+2) BACKEND: support intake endpoint
+- Add route POST /api/v1/support/message
+  body: { email, subject, message, url? }
+  Save to logs/support.jsonl and email ALERT_EMAIL_TO via Resend (copy user email).
+- Add GET /api/v1/support/health -> {inbox:"ok"}.
+
+3) FRONTEND: error reporter (Next.js)
+- Create src/lib/errorReporter.ts:
+  - install global handlers:
+    window.onerror = (msg, src, line, col, err)=> send('/api/v1/errors/report', { level:"error", message:String(msg), stack:String(err?.stack||""), url:location.href, userAgent:navigator.userAgent, ts:Date.now(), release:process.env.NEXT_PUBLIC_APP_NAME||"levqor" });
+    window.onunhandledrejection = (e)=> similar with level:"fatal".
+  - throttle to max 5/min per session.
+- Gate with env ENABLE_ERROR_REPORTER=true (default true). If SENTRY_DSN exists, skip internal reporter init.
+
+4) FRONTEND: support widget
+- Create src/components/SupportWidget.tsx:
+  - Floating button bottom-right. Click opens form: email, subject, message, URL prefilled.
+  - POST to /api/v1/support/message. Show “sent” toast.
+- Gate with env ENABLE_SUPPORT_WIDGET=true (default true). If NEXT_PUBLIC_CRISP_WEBSITE_ID exists, do not render internal widget.
+
+5) INTEGRATION
+- Add <SupportWidget/> to src/app/layout.tsx when ENABLE_SUPPORT_WIDGET.
+- Import and run errorReporter.init() on client in layout when ENABLE_ERROR_REPORTER.
+
+6) CONFIG & FLAGS
+- Read from env:
+  ENABLE_ERROR_REPORTER=true
+  ENABLE_SUPPORT_WIDGET=true
+  SENTRY_DSN (if present, skip internal reporter)
+  NEXT_PUBLIC_CRISP_WEBSITE_ID (if present, skip internal widget)
+- Document in docs/NO_VENDOR_FALLBACKS.md (setup, endpoints, envs, switch-over behavior).
+
+7) VERIFICATION (non-interactive)
+- Start app, then:
+  a) Simulate error:
+     fetch('/api/v1/errors/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({level:'error',message:'simulated',stack:'X',url:'/',userAgent:'test',ts:Date.now()})})
+     Expect 200. Then confirm logs/errors.jsonl appended (size>0).
+  b) Support message:
+     POST /api/v1/support/message with sample body; expect 200; logs/support.jsonl appended.
+  c) Health:
+     GET /api/v1/errors/health and /api/v1/support/health return ok.
+
+8) OUTPUT (print only)
+- endpoints: [/api/v1/errors/report, /api/v1/errors/health, /api/v1/support/message, /api/v1/support/health]
+- flags: ENABLE_ERROR_REPORTER, ENABLE_SUPPORT_WIDGET
+- files: [logs/errors.jsonl, logs/support.jsonl, src/lib/errorReporter.ts, src/components/SupportWidget.tsx, docs/NO_VENDOR_FALLBACKS.md]
+- switch-over: internal disabled automatically if SENTRY_DSN or NEXT_PUBLIC_CRISP_WEBSITE_ID present.
+
+SAFETY
+- Redact emails from error logs; store in support logs only.
+- Rate-limit error intake per IP (e.g., 60/min) and cap body size (16KB).
+- Never log RESEND_API_KEY. Fail closed on Resend errors without crashing API.
