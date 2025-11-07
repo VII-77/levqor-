@@ -8,7 +8,7 @@
   "CANARY_MODE": false,
   "SECURITY_HEADERS_ENABLED": true,
   "RATELIMIT_ENABLED": true,
-  "WEBHOOK_VERIFY_ALL": false,
+  "WEBHOOK_VERIFY_ALL": true,
   "ABUSE_GUARDS_ENABLED": false,
-  "_comment_phase4": "Phase-4 Hardening flags - Security headers + Rate limiting enabled"
+  "_comment_phase4": "Phase-4 Hardening flags - Security headers + Rate limiting + Webhook verification enabled"
 }
