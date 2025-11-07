@@ -28,7 +28,7 @@ log = logging.getLogger("levqor")
 backup_log = logging.getLogger("levqor.backup")
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
-if SENTRY_DSN:
+if SENTRY_DSN and SENTRY_DSN.startswith("https://"):
     try:
         import sentry_sdk
         from sentry_sdk.integrations.flask import FlaskIntegration
@@ -498,6 +498,11 @@ def root():
 @app.get("/health")
 def health():
     return jsonify({"ok": True, "ts": int(time())}), 200
+
+@app.get("/favicon.ico")
+def favicon():
+    """Return 204 No Content for favicon requests to prevent 404 errors"""
+    return "", 204
 
 @app.get("/ready")
 def ready():
