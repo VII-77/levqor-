@@ -43,11 +43,3 @@ htmlcov/
 
 backups/
 .env
-
-node_modules
-.next
-out
-.env*.local
-.vercel
-*.log
-secret.key

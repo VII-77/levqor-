@@ -1,78 +1,218 @@
 # Levqor Backend
 
 ## Overview
-Levqor is an enterprise-ready AI automation job orchestration backend API built with Flask. It provides production-grade workflow management with comprehensive security hardening (v6.0), asynchronous queue processing, real-time monitoring, a partner/affiliate system with automated payouts, revenue tracking, detailed analytics, and robust abuse controls. The platform focuses on operational safety, audit-hardened processes, SLO-based reliability, cost protection, GDPR compliance, and marketing automation capabilities, aiming to be a scalable growth engine for AI-driven automation.
+Levqor is a job orchestration backend API built with Flask, providing AI automation with validation and cost guardrails. The backend handles job intake, status tracking, and provides health monitoring endpoints.
 
-**Latest Version**: v6.0 (Complete Production Maturity)
-**Status**: Investor-Grade Platform ✅
+## Purpose
+- Job orchestration and workflow management
+- JSON schema validation for job requests
+- In-memory job storage (ready for database integration)
+- Health monitoring and metrics reporting
+- Legal documentation and FAQ pages
+
+## Recent Changes
+**November 5, 2025**
+- Initial setup of Levqor backend
+- Created Flask application with all core endpoints
+- Configured CORS and security headers for levqor.ai
+- Added legal documentation (privacy policy, terms of service, cookie notice)
+- Added FAQ page
+- Created validation script for endpoint testing
+- Configured workflow to run on port 5000
+- Fixed deployment health checks with root (/) endpoint
+- Switched to Gunicorn production server with 2 workers, 4 threads, 30s timeout
+- Added user profile management with SQLite database
+- Implemented idempotent email-based user upsert
+- Added user lookup, get, and patch endpoints
+- **Security Layer Added:**
+  - API key authentication for all POST/PATCH routes (X-Api-Key header)
+  - Rate limiting: 20 requests/minute per IP, 200 requests/minute global
+  - Structured logging with IP and User-Agent tracking
+  - Global error handler with exception logging
+  - Protected /api/v1/ops/health endpoint
+- **Database Optimizations:**
+  - SQLite WAL mode enabled for better concurrency
+  - Email index for fast user lookups
+  - PRAGMA optimizations (journal_mode=WAL, synchronous=NORMAL)
+  - Database backup script with WAL-aware copying
+- Fixed database path to use SQLITE_PATH (avoiding PostgreSQL DATABASE_URL conflict)
+- **Production-Grade Hardening:**
+  - Complete security headers: HSTS, CSP, COOP, COEP
+  - Request size limits: 512KB max body, 200KB max payload
+  - Rate-limit response headers with Retry-After
+  - URL and field validation with FormatChecker
+  - Manual HTTP(S) protocol validation for callback URLs
+  - Gunicorn environment variable tuning
+  - Version and build info in root endpoint
+  - Well-known files (security.txt, robots.txt)
+  - API key rotation support with API_KEYS_NEXT
+  - OpenAPI documentation endpoint
+  - All production tests passing
+
+## Project Architecture
+
+### Backend Structure
+- `run.py` - Main Flask application with API endpoints
+- `requirements.txt` - Python dependencies (Flask 3.0.0, jsonschema 4.22.0, requests 2.32.5, gunicorn 23.0.0)
+- `.env.example` - Environment variable template
+- `API_KEY_ROTATION.md` - API key rotation procedure documentation
+
+### Public Pages
+- `public/legal/privacy.html` - Privacy policy
+- `public/legal/terms.html` - Terms of service
+- `public/legal/cookies.html` - Cookie notice
+- `public/faq/index.html` - FAQ page
+- `public/.well-known/security.txt` - Security contact information
+- `public/robots.txt` - Search engine crawling directives
+- `public/openapi.json` - OpenAPI 3.0 API documentation
+
+### Scripts
+- `scripts/validate_levqor.py` - Endpoint validation script
+- `scripts/backup_db.sh` - Database backup script with WAL support
+
+#### Running the Validation Script
+The validation script tests all endpoints to ensure they're working correctly:
+
+```bash
+# Set the BASE_URL environment variable to your Repl URL
+export BASE_URL=https://<your-repl-name>.<your-username>.repl.co
+
+# Run the validation script
+python scripts/validate_levqor.py
+```
+
+On success, you'll see: `🟢 COCKPIT GREEN — Levqor backend validated`
+
+#### Database Backup
+Create consistent backups of the SQLite database:
+
+```bash
+# Backup the database
+./scripts/backup_db.sh
+
+# Backups are stored in backups/ directory with timestamps
+# Format: backups/levqor-YYYY-MM-DD-HHMMSS.db
+# Note: Script uses sqlite3 .backup if available, otherwise copies DB + WAL/SHM files
+```
+
+### API Endpoints
+
+#### Root & Health
+- `GET /` - Root endpoint for deployment health checks
+  - Returns: `{"ok": true, "service": "levqor-backend", "version": "1.0.0"}`
+
+- `GET /health` - Health check endpoint
+  - Returns: `{"ok": true, "ts": <timestamp>}`
+  
+- `GET /public/metrics` - Public metrics
+  - Returns: `{"uptime_rolling_7d": 99.99, "jobs_today": 0, "audit_coverage": 100, "last_updated": <timestamp>}`
+
+#### Job Management
+- `POST /api/v1/intake` - Submit a new job (requires API key)
+  - Headers: `X-Api-Key: <your-api-key>`
+  - Body: `{"workflow": "string", "payload": {}, "callback_url": "string", "priority": "low|normal|high"}`
+  - Returns: `{"job_id": "uuid", "status": "queued"}` (202 Accepted)
+  
+- `GET /api/v1/status/<job_id>` - Check job status (public)
+  - Returns: `{"job_id": "uuid", "status": "queued|running|succeeded|failed", "created_at": <timestamp>, "result": {}, "error": {}}`
+
+#### Development
+- `POST /api/v1/_dev/complete/<job_id>` - Simulate job completion (dev only, requires API key)
+  - Headers: `X-Api-Key: <your-api-key>`
+  - Body: `{"result": {}}`
+  - Returns: `{"ok": true}`
+
+#### Operations
+- `GET /api/v1/ops/health` - Protected health check endpoint (requires API key)
+  - Headers: `X-Api-Key: <your-api-key>`
+  - Returns: `{"ok": true, "ts": <timestamp>}`
+
+#### User Management
+- `POST /api/v1/users/upsert` - Create or update user by email (idempotent, requires API key)
+  - Headers: `X-Api-Key: <your-api-key>`
+  - Body: `{"email": "user@example.com", "name": "Name", "locale": "en-GB", "currency": "GBP|USD|EUR", "meta": {}}`
+  - Returns: `{"created": true, "user": {...}}` (201) or `{"updated": true, "user": {...}}` (200)
+  
+- `GET /api/v1/users?email=<email>` - Lookup user by email (public)
+  - Returns: User object (200) or `{"error": "not_found"}` (404)
+  
+- `GET /api/v1/users/<user_id>` - Get user by ID (public)
+  - Returns: User object (200) or `{"error": "not_found"}` (404)
+  
+- `PATCH /api/v1/users/<user_id>` - Update user fields (requires API key)
+  - Headers: `X-Api-Key: <your-api-key>`
+  - Body: `{"name": "New Name", "locale": "en-US", "currency": "USD", "meta": {"key": "value"}}`
+  - Returns: `{"updated": true, "user": {...}}` (200)
+
+### Security & CORS
+- **Authentication:**
+  - API key-based authentication for all POST/PATCH routes
+  - Keys passed via `X-Api-Key` header
+  - Development mode: When `API_KEYS` env var not set, all requests allowed
+  - Production: Set `API_KEYS` environment variable (comma-separated values)
+  - Zero-downtime key rotation via `API_KEYS_NEXT` (see API_KEY_ROTATION.md)
+- **Rate Limiting:**
+  - Per-IP burst limit: 20 requests/minute (configurable via `RATE_BURST`)
+  - Global limit: 200 requests/minute (configurable via `RATE_GLOBAL`)
+  - Returns 429 (Too Many Requests) when limits exceeded
+  - Response headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After
+- **Request Limits:**
+  - Maximum request body: 512KB (configurable via `MAX_CONTENT_LENGTH`)
+  - Maximum job payload: 200KB
+  - Workflow name: 1-128 characters
+  - Callback URL: 1-1024 characters, must be valid HTTP(S)
+- **Logging:**
+  - Structured logging for all requests (method, path, IP, User-Agent)
+  - Exception logging with full traceback
+  - Log level: INFO
+- **CORS:**
+  - Configured for `https://levqor.ai`
+  - Allowed methods: GET, POST, OPTIONS, PATCH
+  - Allowed headers: Content-Type, Authorization, X-Api-Key
+- **Security Headers (Production-Grade):**
+  - Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  - Content-Security-Policy: default-src 'none'; connect-src https://levqor.ai https://api.levqor.ai; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'
+  - Cross-Origin-Opener-Policy: same-origin
+  - Cross-Origin-Embedder-Policy: require-corp
+  - X-Content-Type-Options: nosniff
+  - X-Frame-Options: DENY
+  - Referrer-Policy: strict-origin-when-cross-origin
+  - Permissions-Policy: geolocation=(), microphone=()
+- **Input Validation:**
+  - JSON schema validation with FormatChecker for all API requests
+  - Field length constraints on all inputs
+  - Manual HTTP(S) protocol validation for callback URLs
+  - Global error handler to prevent information leakage
+
+### Current State
+- **Production-Ready**: All hardening deltas completed and architect-approved
+- Production server (Gunicorn) running on port 5000 with 2 workers, 4 threads, 30s timeout
+- In-memory job store (JOBS dictionary)
+- SQLite database for user profiles (levqor.db) with WAL mode enabled
+- All endpoints operational and tested
+- Deployment configured for Autoscale with environment variable tuning
+- Root endpoint (/) with version and build info
+- User management with email-based idempotent upsert
+- Production-grade security: HSTS, CSP, COOP, COEP headers
+- Comprehensive security layer with API key auth and rate limiting
+- Rate-limit response headers (X-RateLimit-*, Retry-After)
+- Request size limits (512KB body, 200KB payload)
+- URL and field validation with length constraints
+- Structured logging for all requests
+- Database backup script for consistent snapshots
+- API key rotation support with dual-set validation
+- OpenAPI 3.0 documentation at /public/openapi.json
+- Well-known files (security.txt, robots.txt)
+- Ready for production deployment
+
+## Next Phase
+- Replace in-memory job store with PostgreSQL or Redis
+- Implement real job orchestration queue (Celery, RQ, or similar)
+- Implement callback URL notifications for job completion
+- Add cost tracking and guardrails enforcement
+- Add API key management endpoints (create, revoke, list)
+- Implement usage analytics and monitoring
+- Deploy to production environment with API_KEYS configured
 
 ## User Preferences
-- **Resend Email:** Manual API key management preferred
-- **Stripe:** Manual secret management in use
-- **OpenAI:** Manual API key in use
-
-## System Architecture
-
-### Core Backend
-The backend is a Flask application managing API endpoints, job orchestration, and health monitoring. It enforces JSON schema validation, utilizes a global error handler, and includes a credits-based billing model integrated with Stripe.
-
-### Job Management
-Jobs are submitted via an intake endpoint, processed asynchronously using RQ with DLQ and retry logic, and tracked in-memory with future plans for persistent storage.
-
-### User Management
-User profiles are managed in an SQLite database, supporting idempotent email-based upsert, lookup, and patching.
-
-### Security and Hardening
-Features include JWT token rotation with refresh tokens (15min/7day expiry), token revocation database, per-user rate limiting (60/min), API key-based authentication, production-grade security headers (HSTS, CSP, COOP, COEP with Next.js middleware), comprehensive input validation, webhook signature verification (Stripe, Slack, Telegram, generic HMAC), AES-128 PII encryption, and abuse controls with device binding and referral anti-fraud. Feature flags allow for controlled rollout of security enhancements.
-
-### Connectors
-A dynamic connector system allows integration with external services (e.g., Slack, Notion, Telegram, Email, Google Sheets), each providing a `run_task(payload)` interface with fail-closed error handling.
-
-### Public Pages & Content
-The application serves static public content including legal documents, FAQs, OpenAPI documentation, marketing assets, `security.txt`, and `robots.txt`. A separate Next.js 14 application (`levqor-site`) serves as the public marketing site with SEO optimization, mobile responsiveness, and a Markdown-based blog.
-
-### Email System
-A `notifier.py` module integrates with Resend.com for sending branded email notifications, including a 4-email onboarding sequence and automated billing emails.
-
-### Automated Tasks
-An APScheduler-based system performs daily database backups with SHA-256 checksum verification and optional Google Drive upload, logs activity, and includes automated backup restore validation, emergency rollback automation, SLO watchdog with auto-rollback on latency threshold breach, spend guard automation with daily limit protection, and partner payout processing via Stripe Connect.
-
-### Analytics & Metrics Tracking
-A comprehensive system tracks user engagement across the marketing frontend, storing events in SQLite. It includes endpoints for recording events and retrieving aggregated metrics with time-based analytics, a protected dashboard for visualization, and SHA-256 hashing of email addresses for privacy. Enhanced Prometheus metrics provide P95 latency, queue depth, error rates, connector 5xx, and AI costs.
-
-### AI Workflow Builder
-This system converts natural language descriptions into executable JSON pipelines via a `/api/v1/plan` endpoint, storing them for execution. The `/api/v1/run` endpoint executes these pipelines, deducting credits and logging results, leveraging OpenAI's GPT-4o-mini.
-
-### Referral and Partner System
-A referral system rewards users with credits for valid sign-ups. A comprehensive partner/affiliate system includes partner registration, 20% commission tracking on referred revenue via Stripe webhooks, automated Stripe Connect payouts ($50 minimum threshold), a partner dashboard with conversion funnel metrics, and an admin revenue dashboard for MRR/ARR tracking and commission processing.
-
-### Monitoring & Observability
-A vendor-free monitoring system provides error tracking and support messaging with graceful degradation. It uses JSONL-based logging and automatically integrates with Sentry when `SENTRY_DSN` is set, and forwards support requests via email when `RECEIVING_EMAIL` is configured. Health endpoints (`/ops/queue_health`, `/ops/dlq/retry`, `/ops/uptime`) are available for system status monitoring. Telegram alerts are integrated for critical thresholds with 4 severity levels (critical, warning, info, success). Statistical anomaly detection monitors latency and error spikes using 3-sigma threshold. Cost dashboard aggregates metrics from Stripe, OpenAI, and infrastructure for unified cost tracking. SLO watchdog monitors 200ms P95 latency threshold with automatic rollback capability.
-
-### Marketing Frontends
-- **levqor-web/ (Original)**: Next.js 14 application with landing page, pricing, analytics dashboard, and reusable React components.
-- **levqor-site/ (Public Landing - NEW)**: Next.js 14 marketing site with hero sections, features, legal pages, blog, SEO, and mobile responsiveness. Includes security headers middleware (CSP, HSTS, COOP), testimonials component with trust badges, and automated sitemap submission to search engines.
-
-### Deployment
-The Flask application is deployed to Replit Autoscale using Gunicorn. Next.js frontends are ready for deployment to platforms like Vercel.
-
-## External Dependencies
-- **Flask**: Web framework.
-- **Resend.com**: Email sending service.
-- **Stripe**: Payment processing for billing and webhooks.
-- **Google API Python Client**: For Gmail connector.
-- **requests**: For Notion API integration.
-- **Slack SDK WebClient**: For Slack connector.
-- **python-telegram-bot**: For Telegram connector.
-- **APScheduler**: For scheduling automated tasks.
-- **SQLite**: Database for user profiles and analytics events.
-- **Gunicorn**: Production WSGI HTTP server.
-- **markdown2**: Markdown to HTML rendering.
-- **OpenAI API**: For AI workflow generation.
-- **Sentry SDK**: Optional error tracking.
-- **Crisp**: Optional support chat.
-- **Buffer**: Social media integration for marketing automation.
-- **Prometheus**: For metrics collection and monitoring.
-- **Redis**: For async job queue (RQ) and rate limiting.
-- **PostgreSQL**: Planned/migrated primary database.
-- **PyJWT**: JWT token encoding/decoding for authentication.
+None documented yet.

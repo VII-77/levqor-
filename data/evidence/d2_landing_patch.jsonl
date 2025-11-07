@@ -1,6 +1,0 @@
-{"gate": "D2", "status": "PARTIAL", "timestamp": "2025-11-06T17:04:00Z"}
-{"hero_text": "Levqor automates your business with a self-running AI engine", "subtext": "No cron. No plugins."}
-{"status_badge": "created", "component": "StatusBadge.tsx", "pulls_from": "NEXT_PUBLIC_STATUS_URL"}
-{"cta_button": "View Pricing", "target": "/pricing", "verified": true}
-{"build_status": "SUCCESS", "framework": "Next.js 14.2.5", "routes": ["/ (dynamic)", "/press (static)", "/pricing (static)", "/dashboard (dynamic)"]}
-{"deployment": "MANUAL_REQUIRED", "vercel_config": "created", "instructions": "data/evidence/d2_deployment_instructions.txt"}

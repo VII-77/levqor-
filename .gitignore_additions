@@ -1,6 +1,0 @@
-# Levqor v5.2 - Quick Reference
-
-# Add these lines to .gitignore:
-secret.key
-/tmp/test_restore.db
-

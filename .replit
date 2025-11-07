@@ -1,7 +1,6 @@
-modules = ["python-3.11", "nodejs-20", "postgresql-16"]
+modules = ["python-3.11"]
 [agent]
 expertMode = true
-integrations = ["google-sheet:1.0.0"]
 
 [workflows]
 runButton = "Project"
@@ -15,10 +14,6 @@ author = "agent"
 task = "workflow.run"
 args = "levqor-backend"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "levqor-frontend"
-
 [[workflows.workflow]]
 name = "levqor-backend"
 author = "agent"
@@ -31,37 +26,9 @@ task = "shell.exec"
 args = "gunicorn --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-4} --timeout ${GUNICORN_TIMEOUT:-30} --graceful-timeout 20 --bind 0.0.0.0:5000 --reuse-port --log-level info run:app"
 waitForPort = 5000
 
-[[workflows.workflow]]
-name = "levqor-frontend"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd levqor/frontend && npm run dev"
-waitForPort = 3000
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[ports]]
-localPort = 3000
-externalPort = 3000
-
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 35611
-externalPort = 3001
-
-[[ports]]
-localPort = 42339
-externalPort = 3002
-
-[[ports]]
-localPort = 42575
-externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -70,4 +37,3 @@ build = ["sh", "-c", "BUILD_ID=2025-11-05.1"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["cargo", "libiconv", "libxcrypt", "openssl", "pkg-config", "redis", "rustc", "nano", "zip"]

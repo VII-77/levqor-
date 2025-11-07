@@ -1,0 +1,14 @@
+HTTP/1.1 400 BAD REQUEST
+Server: gunicorn
+Date: Wed, 05 Nov 2025 20:14:35 GMT
+Connection: keep-alive
+Content-Type: application/json
+Content-Length: 74
+Access-Control-Allow-Origin: https://levqor.ai
+Access-Control-Allow-Methods: GET,POST,OPTIONS,PATCH
+Access-Control-Allow-Headers: Content-Type, Authorization, X-Api-Key
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), microphone=()
+
