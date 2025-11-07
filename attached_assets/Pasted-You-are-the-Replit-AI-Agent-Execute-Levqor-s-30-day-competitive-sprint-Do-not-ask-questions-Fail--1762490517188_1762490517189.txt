@@ -1,0 +1,134 @@
+You are the Replit AI Agent. Execute Levqor’s 30-day competitive sprint. Do not ask questions. Fail closed on any error and print the failing step + file path.
+
+GOAL
+Move Levqor from “works” to “scales”: discovery, connectors, dashboard, pricing depth, multi-region readiness, compliance checklist. Keep existing prod stable. Use branches + CI/CD. Never print secrets or PII.
+
+INPUTS (secrets pane; never echo)
+STRIPE_LIVE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+RESEND_API_KEY
+PLAUSIBLE_DOMAIN                 # e.g. levqor.ai (optional)
+HEAP_ID                          # optional
+FRONTEND_URL                     # e.g. https://<vercel-app>.vercel.app
+BACKEND_BASE                     # e.g. https://<backend>.repl.co
+ALLOWED_ORIGINS                  # JSON list: ["https://<vercel>","https://app.<domain>"]
+
+REPOS
+- Frontend: levqor-frontend (Next.js)
+- Backend: Levqor backend (FastAPI/Flask already live)
+
+BRANCHING & CI
+1) Create branches:
+   - frontend: sprint-30d
+   - backend: sprint-30d
+2) Keep prod on main. Use GitHub Actions already installed; add jobs for preview deploys on PRs.
+3) All steps below commit to sprint branches; open PRs to main with checks.
+
+WEEK 1 — FOUNDATION & VISIBILITY
+A1) Front site root (marketing)
+- Frontend: create `src/app/(marketing)/page.tsx` with hero, value prop, CTA → `/pricing`.
+- Add nav link “Pricing” and footer links to privacy/terms.
+- SEO: in `src/app/layout.tsx` add meta description, OpenGraph, canonical to FRONTEND_URL.
+- Add `public/robots.txt`, `public/sitemap.xml` (dynamic routes: /, /pricing, /success, /cancel).
+
+A2) Analytics + referrals
+- If PLAUSIBLE_DOMAIN, inject `<script defer data-domain=... src="https://plausible.io/js/script.js">`.
+- If HEAP_ID, inject Heap snippet.
+- `src/lib/ref.ts`: capture `utm_*` + `ref` to `localStorage.levqor_ref` with timestamp.
+
+A3) Support mail links
+- Footer mailto: `support@levqor.ai`, `billing@levqor.ai`.
+- Verify Resend integration by sending one test to ALERT_EMAIL (do not log content).
+
+CHECKS (fail if any false)
+- `npm run build` passes.
+- `curl -fsS ${BACKEND_BASE}/status` returns JSON.
+- Lighthouse CI (basic): ensure HTML has `<title>` and meta description.
+
+WEEK 2 — PRODUCT EXPANSION
+B1) User dashboard (frontend)
+- New route `/dashboard`: show subscription plan, renewal date, usage metrics (from backend `/api/usage/summary`).
+- Add “Manage billing” button → backend `/billing/portal`.
+
+B2) Backend usage API
+- Add `/api/usage/summary` returning: `{runs_today, runs_7d, runs_30d, plan, renewal_at}` using existing logs/ledger.
+- Add auth placeholder (token header accepted but optional for MVP). No PII.
+
+B3) 5 connectors (backend “actions”)
+- Implement minimal OAuthless actions (MVP) with webhooks or API tokens from env:
+  - Slack: send message to channel via webhook URL.
+  - Google Sheets: append row via service account or API key if present; else stub with fail-closed message “not configured”.
+  - Notion: create page via NOTION_API_KEY if set; else stub.
+  - Gmail (via Resend fallback): send transactional email.
+  - Telegram: send message via BOT_TOKEN if set; else stub.
+- Expose endpoints `/actions/slack.send`, `/actions/sheets.append`, `/actions/notion.create`, `/actions/email.send`, `/actions/telegram.send`.
+- Each endpoint validates payload schema and logs masked identifiers.
+
+CHECKS
+- `curl -X POST .../actions/slack.send -d '{"text":"ping"}'` returns 200 if SLACK_WEBHOOK_URL set; else 503 with clear message.
+- `/api/usage/summary` returns numbers; no user PII.
+
+WEEK 3 — MONETIZATION DEPTH
+C1) Usage metric + free plan
+- Define “automation run” counter; increment on each `/actions/*` success.
+- Add plan gates:
+  - free: 1 run/day
+  - pro: unlimited
+- Return 402 JSON if free over limit, with upgrade url to `/pricing`.
+
+C2) Pricing page improvements
+- `/pricing`: show Free, Pro Monthly $19, Pro Annual $190. Each CTA posts to `/billing/create-checkout-session`. Hide $1 test from UI.
+- Trial flow: for Monthly, add “Start free 7-day trial” uses `trial=true`.
+
+C3) Emails lifecycle
+- Backend `mailer.py`: ensure `send_welcome`, `send_receipt`, `send_cancel`, `send_refund`.
+- Webhook already wired; ensure masked logs only.
+
+CHECKS
+- Run: free plan rate limit triggers after 1 action/day.
+- Trial checkout URL generated.
+- `/billing/health` includes `mailer: "ok"`, `prices` non-empty.
+
+WEEK 4 — SCALE & DEFENSIBILITY
+D1) Availability
+- Add `/ops/uptime` endpoint and simple “status page” on front `/status` embedding backend metrics.
+- Add UptimeRobot suggestion text file `docs/UPTIME.md` with two monitor URLs (front + `${BACKEND_BASE}/ready`).
+
+D2) Multi-region path
+- Add `docs/ARCHITECTURE.md`: current single region, migration plan (Railway/Fly.io), env parity list, secrets matrix, image list.
+- Add health gating: deployment must pass `/ready`, `/status`, `/ops/selftest` before traffic switch (already implemented in CI; document).
+
+D3) Compliance checklist
+- Create `docs/SECURITY_COMPLIANCE.md`: SOC2-style controls (access, logging, backups, incident, data retention), encryption notes, vendor list (Stripe, Vercel, Replit, Resend, Cloudflare).
+
+PUBLIC POSITIONING
+- `docs/WHY_LEVQOR.md`: positioning vs Make/Zapier — niche focus, “hands-off” autonomy, lower TCO, faster to value for target workflows.
+
+VERIFICATION SUITE (run at end and on PR)
+- Frontend:
+  - `GET /pricing` 200 and has three plan cards.
+  - `GET /dashboard` 200; renders usage numbers from API.
+  - `robots.txt` and `sitemap.xml` exist.
+- Backend:
+  - `GET /api/usage/summary` returns numeric fields.
+  - `/actions/*` endpoints return 200 or 503 with clear “not configured” reason.
+  - Free plan throttle enforced for anonymous user/session.
+  - `/billing/health` shows `mailer:ok`, trial capable.
+- Billing loop:
+  - Create monthly trial checkout URL.
+  - $1 onetest URL generated (no need to complete in CI).
+- Docs:
+  - `docs/ARCHITECTURE.md`, `docs/SECURITY_COMPLIANCE.md`, `docs/WHY_LEVQOR.md`, `docs/UPTIME.md` exist and non-empty.
+
+OUTPUT
+- Print a compact summary:
+  - frontend: pricing, dashboard, seo, analytics → OK/FAIL
+  - backend: usage api, actions, rate limit, billing health → OK/FAIL
+  - pricing: trial + plans linked → OK/FAIL
+  - docs: architecture, compliance, uptime, positioning → OK/FAIL
+  - next: list of any failing checks with file paths
+
+SAFETY
+- Never print secrets or PII.
+- Keep prod `main` untouched until PR checks pass.
+- If any step fails: restore modified files, exit non-zero, print failing step.

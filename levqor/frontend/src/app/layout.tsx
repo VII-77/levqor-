@@ -3,13 +3,19 @@ import Script from 'next/script'
 import MonitoringWrapper from '@/components/MonitoringWrapper'
 import './globals.css'
 
+const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://levqor.ai';
+
 export const metadata: Metadata = {
   title: 'Levqor - AI-Powered Automation Platform',
   description: 'Build powerful automations with natural language. Levqor uses AI to convert your descriptions into production-ready workflows.',
+  metadataBase: new URL(FRONTEND_URL),
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     title: 'Levqor - Self-Driving Automation',
     description: 'AI-powered workflow automation that understands plain English',
-    url: 'https://levqor.ai',
+    url: FRONTEND_URL,
     siteName: 'Levqor',
     images: [
       {
@@ -35,6 +41,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN
+  const heapId = process.env.NEXT_PUBLIC_HEAP_ID
 
   return (
     <html lang="en">
@@ -44,6 +51,18 @@ export default function RootLayout({
             defer
             data-domain={plausibleDomain}
             src="https://plausible.io/js/script.js"
+          />
+        )}
+        {heapId && (
+          <Script
+            id="heap-analytics"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `
+                window.heap=window.heap||[],heap.load=function(e,t){window.heap.appid=e,window.heap.config=t=t||{};var r=document.createElement("script");r.type="text/javascript",r.async=!0,r.src="https://cdn.heapanalytics.com/js/heap-"+e+".js";var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(r,a);for(var n=function(e){return function(){heap.push([e].concat(Array.prototype.slice.call(arguments,0)))}},p=["addEventProperties","addUserProperties","clearEventProperties","identify","resetIdentity","removeEventProperty","setEventProperties","track","unsetEventProperty"],o=0;o<p.length;o++)heap[p[o]]=n(p[o])};
+                heap.load("${heapId}");
+              `
+            }}
           />
         )}
       </head>
@@ -65,6 +84,8 @@ export default function RootLayout({
               <a href="/privacy" style={styles.footerLink}>Privacy</a>
               <a href="/terms" style={styles.footerLink}>Terms</a>
               <a href="/pricing" style={styles.footerLink}>Pricing</a>
+              <a href="mailto:support@levqor.ai" style={styles.footerLink}>Support</a>
+              <a href="mailto:billing@levqor.ai" style={styles.footerLink}>Billing</a>
               <a href="https://github.com/levqor" style={styles.footerLink}>GitHub</a>
             </div>
             <p style={styles.footerText}>© 2025 Levqor. All rights reserved.</p>
