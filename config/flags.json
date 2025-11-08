@@ -1,0 +1,8 @@
+{
+  "WORKER_COUNT": 2,
+  "AUTOSCALE_ENABLED": false,
+  "INCIDENT_AUTORECOVER": false,
+  "NEW_QUEUE_ENABLED": false,
+  "LAST_AUTOSCALE": null,
+  "updated_at": "2025-11-08T13:40:00Z"
+}
