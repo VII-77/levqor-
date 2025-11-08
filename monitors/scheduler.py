@@ -76,6 +76,37 @@ def run_cost_prediction():
     except Exception as e:
         log.error(f"Cost prediction error: {e}")
 
+def update_kv_costs():
+    """Persist cost metrics to KV store (hourly)"""
+    import sqlite3
+    log.debug("Updating KV cost metrics...")
+    
+    def _kv_upsert(key, val):
+        conn = sqlite3.connect('levqor.db')
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO kv (key, value, updated_at) 
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(key) DO UPDATE SET 
+                value = excluded.value,
+                updated_at = CURRENT_TIMESTAMP
+        """, (key, str(val)))
+        conn.commit()
+        conn.close()
+    
+    try:
+        from scripts.cost_predict import load_cached_forecast
+        forecast = load_cached_forecast()
+        
+        if forecast:
+            breakdown = forecast.get('breakdown', {})
+            _kv_upsert('openai_cost_30d', breakdown.get('openai_estimate', 0))
+            _kv_upsert('infra_cost_30d', sum(breakdown.get('infra_costs', {}).values()))
+            _kv_upsert('stripe_revenue_30d', breakdown.get('stripe_revenue_last_30d', 1))
+            log.debug("✅ KV costs updated")
+    except Exception as e:
+        log.error(f"KV cost update failed: {e}")
+
 def init_scheduler():
     """Initialize and start APScheduler"""
     try:
@@ -117,8 +148,17 @@ def init_scheduler():
             replace_existing=True
         )
         
+        scheduler.add_job(
+            update_kv_costs,
+            'interval',
+            hours=1,
+            id='kv_costs',
+            name='Hourly KV cost sync',
+            replace_existing=True
+        )
+        
         scheduler.start()
-        log.info("✅ APScheduler initialized with 4 jobs")
+        log.info("✅ APScheduler initialized with 5 jobs")
         return scheduler
         
     except ImportError:

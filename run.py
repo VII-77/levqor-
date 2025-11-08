@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from jsonschema import validate, ValidationError, FormatChecker
 from time import time
 from uuid import uuid4
@@ -44,6 +44,15 @@ except Exception as e:
 app = Flask(__name__, 
     static_folder='public',
     static_url_path='/public')
+
+# Register Phase 6.4 blueprints
+from api.billing.pricing import bp as pricing_bp
+from api.admin.ledger import bp as ledger_bp
+from api.admin.flags import bp as flags_bp
+
+app.register_blueprint(pricing_bp)
+app.register_blueprint(ledger_bp)
+app.register_blueprint(flags_bp)
 
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_CONTENT_LENGTH", 512 * 1024))
 
@@ -799,6 +808,28 @@ OPENAPI = {
 @app.get("/public/openapi.json")
 def openapi():
     return jsonify(OPENAPI)
+
+@app.get("/ops/anomaly_ai")
+def anomaly_ai():
+    """ML-based anomaly detection for latency"""
+    from monitors.anomaly_ai import predict
+    
+    try:
+        latency_ms = float(request.args.get("latency_ms", "120"))
+    except ValueError:
+        latency_ms = 120.0
+    
+    result = predict(latency_ms)
+    return jsonify(result), 200
+
+@app.get("/admin/flags")
+def admin_flags_ui():
+    """Feature flags admin UI"""
+    token = (request.headers.get("Authorization") or "").replace("Bearer ", "")
+    if not token or token != ADMIN_TOKEN:
+        return ("Unauthorized", 401)
+    
+    return render_template("admin/flags.html")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
