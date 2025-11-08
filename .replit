@@ -26,6 +26,7 @@ task = "shell.exec"
 args = "gunicorn --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-4} --timeout ${GUNICORN_TIMEOUT:-30} --graceful-timeout 20 --bind 0.0.0.0:5000 --reuse-port --log-level info run:app"
 waitForPort = 5000
 
+<<<<<<< HEAD
 [[ports]]
 localPort = 5000
 externalPort = 80
@@ -38,3 +39,11 @@ build = ["sh", "-c", "BUILD_ID=2025-11-05.1"]
 [nix]
 channel = "stable-25_05"
 packages = ["yakut"]
+=======
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "30", "--graceful-timeout", "20", "--bind", "0.0.0.0:5000", "--reuse-port", "--log-level", "info", "run:app"]
+>>>>>>> f948251 (Saved progress at the end of the loop)
