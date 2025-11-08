@@ -1,0 +1,65 @@
+Here’s the exact Replit AI Agent prompt to safely finalize and push your 40 production files for Levqor v6.5:
+
+
+---
+
+🧠 GOAL
+Finalize and safely push Levqor v6.5 updates (AI Insights + Smart Ops) to production.
+Only commit real source files (no node_modules, build, or env files).
+Ensure backend + frontend deploy cleanly via Git + Vercel auto-deploy.
+
+---
+
+🛠️ TASKS
+
+1️⃣  Verify what’s staged
+   - Run `git status --short` and confirm about 40 modified/added files.
+   - Ensure no sensitive or generated files like `.env`, `node_modules/`, `.next/`, or `__pycache__/` are staged.
+
+2️⃣  If any of those are staged:
+   - Run:
+     ```
+     git restore --staged .env node_modules .next __pycache__ 2>/dev/null || true
+     ```
+
+3️⃣  Commit all backend + frontend code:
+
+git add run.py api/ monitors/ scripts/ db/migrations/ PHASE_6_5_SUMMARY.md replit.md levqor-site/src/ git commit -m "v6.5: backend AI insights + runbooks + frontend insights dashboards"
+
+4️⃣  Push changes to trigger Vercel deployment:
+
+git push origin main
+
+5️⃣  Wait for Vercel build to complete, then verify pages:
+
+open https://levqor.ai/insights open https://levqor.ai/admin/insights
+
+6️⃣  Run smoke tests:
+
+curl -s https://api.levqor.ai/status curl -s https://api.levqor.ai/ops/uptime curl -s "https://api.levqor.ai/api/admin/anomaly/explain?latency_ms=150" curl -s https://api.levqor.ai/api/admin/runbooks
+
+7️⃣  Confirm successful deploy when:
+- Pages return HTTP 200 and show live dashboards.
+- API endpoints return valid JSON responses (not internal_error).
+
+---
+
+✅ SUCCESS CRITERIA
+- Exactly ~40 source files committed.
+- Vercel build passes.
+- `/insights` and `/admin/insights` render without errors.
+- `/api/admin/*` endpoints respond correctly.
+
+---
+
+⚡ OUTPUT
+Provide final confirmation summary:
+- Number of files committed  
+- Commit hash  
+- Vercel deployment URL  
+- Status of each tested endpoint
+
+
+---
+
+This tells the Replit Agent exactly what to check, commit, and verify — while keeping it 100% safe and automated for your v6.5 release.
