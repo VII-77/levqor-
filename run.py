@@ -77,6 +77,23 @@ def get_db():
           )
         """)
         _db_connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+        
+        _db_connection.execute("""
+          CREATE TABLE IF NOT EXISTS referrals(
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            email TEXT,
+            source TEXT NOT NULL,
+            campaign TEXT,
+            medium TEXT,
+            created_at REAL,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+          )
+        """)
+        _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_referrals_user_id ON referrals(user_id)")
+        _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_referrals_source ON referrals(source)")
+        _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_referrals_created_at ON referrals(created_at)")
+        
         _db_connection.execute("PRAGMA journal_mode=WAL")
         _db_connection.execute("PRAGMA synchronous=NORMAL")
         _db_connection.commit()
@@ -484,6 +501,95 @@ def users_get(user_id):
     if not u:
         return jsonify({"error": "not_found", "user_id": user_id}), 404
     return jsonify(u), 200
+
+@app.post("/api/v1/referrals/track")
+def track_referral():
+    """Track a referral source (public endpoint for analytics)"""
+    rate_check = throttle()
+    if rate_check:
+        return rate_check
+    
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 400
+    
+    body = request.get_json(silent=True) or {}
+    email = body.get("email", "").strip().lower()
+    source = body.get("source", "direct").strip()
+    campaign = body.get("campaign", "").strip()
+    medium = body.get("medium", "").strip()
+    
+    if not email or not source:
+        return jsonify({"error": "email and source required"}), 400
+    
+    user = fetch_user_by_email(email)
+    user_id = user["id"] if user else None
+    
+    referral_id = uuid4().hex
+    now = time()
+    
+    get_db().execute(
+        "INSERT INTO referrals(id, user_id, email, source, campaign, medium, created_at) VALUES (?,?,?,?,?,?,?)",
+        (referral_id, user_id, email, source, campaign, medium, now)
+    )
+    get_db().commit()
+    
+    return jsonify({"ok": True, "referral_id": referral_id}), 201
+
+@app.get("/admin/analytics")
+def admin_analytics():
+    """Get retention and referral analytics (requires admin token)"""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({"error": "unauthorized"}), 401
+    
+    token = auth_header.split(" ")[1]
+    if token != ADMIN_TOKEN:
+        return jsonify({"error": "forbidden"}), 403
+    
+    now = time()
+    seven_days_ago = now - (7 * 24 * 60 * 60)
+    thirty_days_ago = now - (30 * 24 * 60 * 60)
+    
+    db = get_db()
+    
+    cursor = db.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0]
+    
+    cursor = db.execute("SELECT COUNT(*) FROM users WHERE created_at >= ?", (seven_days_ago,))
+    new_users_7d = cursor.fetchone()[0]
+    
+    cursor = db.execute("SELECT COUNT(*) FROM users WHERE created_at >= ?", (thirty_days_ago,))
+    new_users_30d = cursor.fetchone()[0]
+    
+    cursor = db.execute("""
+        SELECT source, COUNT(*) as count 
+        FROM referrals 
+        WHERE created_at >= ? 
+        GROUP BY source 
+        ORDER BY count DESC 
+        LIMIT 10
+    """, (thirty_days_ago,))
+    top_referrals = [{"source": row[0], "count": row[1]} for row in cursor.fetchall()]
+    
+    cursor = db.execute("SELECT COUNT(*) FROM referrals WHERE created_at >= ?", (seven_days_ago,))
+    referrals_7d = cursor.fetchone()[0]
+    
+    cursor = db.execute("SELECT COUNT(*) FROM referrals WHERE created_at >= ?", (thirty_days_ago,))
+    referrals_30d = cursor.fetchone()[0]
+    
+    return jsonify({
+        "users": {
+            "total": total_users,
+            "new_7d": new_users_7d,
+            "new_30d": new_users_30d,
+        },
+        "referrals": {
+            "total_7d": referrals_7d,
+            "total_30d": referrals_30d,
+            "top_sources": top_referrals
+        },
+        "timestamp": int(now)
+    }), 200
 
 @app.get("/api/v1/users")
 def users_lookup():
