@@ -680,9 +680,9 @@ from api.admin.ledger import bp as ledger_bp
 from api.admin.growth import bp as growth_bp
 from api.billing.pricing import bp as pricing_bp
 from api.billing.discounts import bp as discounts_bp
-from api.admin.insights import bp as insights_bp
-from api.admin.runbooks import bp as runbooks_bp
-from api.admin.postmortem import bp as postmortem_bp
+from api.admin.insights import bp as admin_insights_bp
+from api.admin.runbooks import bp as admin_runbooks_bp
+from api.admin.postmortem import bp as admin_postmortem_bp
 from monitors.auto_tune import suggest_tuning
 
 app.register_blueprint(flags_bp)
@@ -690,9 +690,9 @@ app.register_blueprint(ledger_bp)
 app.register_blueprint(growth_bp)
 app.register_blueprint(pricing_bp)
 app.register_blueprint(discounts_bp)
-app.register_blueprint(insights_bp)
-app.register_blueprint(runbooks_bp)
-app.register_blueprint(postmortem_bp)
+app.register_blueprint(admin_insights_bp)
+app.register_blueprint(admin_runbooks_bp)
+app.register_blueprint(admin_postmortem_bp)
 
 @app.get("/ops/auto_tune")
 def auto_tune_endpoint():
