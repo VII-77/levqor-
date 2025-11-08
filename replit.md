@@ -31,6 +31,19 @@ The frontend is built with Next.js 14 and TypeScript, focusing on a clear authen
 - **Referral Tracking**: `referrals` database table, `POST /api/v1/referrals/track` endpoint, and integration into sign-in flow to capture referral parameters.
 - **Analytics Dashboard**: `GET /admin/analytics` endpoint and React component for displaying user metrics and top referral sources.
 - **Ops Summary Automation**: `scripts/ops_summary.py` for automated HTML email reports via Resend, covering system health, user metrics, and referral data.
+- **AI Insights (v6.5)**: Intelligent operational insights powered by statistical analysis:
+    - `monitors/ai_insights.py`: Anomaly detection using z-score analysis, automated incident summarization, and weekly operational briefs.
+    - `monitors/runbooks.py`: Automated operational runbooks for common tasks (restart worker, flush DLQ, rebuild indexes, toggle readonly).
+    - Database tables: `incidents`, `postmortems`, `ai_cache`, `feature_flags` for tracking and managing operational intelligence.
+    - Feature flags: `AI_INSIGHTS_ENABLED`, `SMART_OPS_ENABLED`, `WEEKLY_BRIEF_ENABLED`, `AUTO_POSTMORTEM_ENABLED` for controlled rollout.
+- **Admin Intelligence Dashboard (v6.5)**: Frontend and backend endpoints for operational intelligence:
+    - `GET /api/admin/anomaly/explain`: Explain detected anomalies with statistical scores.
+    - `POST /api/admin/incidents/summarize`: Generate AI-powered incident summaries.
+    - `POST /api/admin/postmortem`: Auto-generate postmortem reports in Markdown.
+    - `GET /api/admin/runbooks`: List available operational runbooks.
+    - `POST /api/admin/runbooks/apply`: Execute or preview runbook actions.
+    - `GET /api/admin/brief/weekly`: Generate weekly operational intelligence brief.
+    - Frontend pages: `/insights` (public metrics dashboard), `/admin/insights` (admin control panel).
 
 ### Feature Specifications
 - **Job Orchestration**: Intake, status tracking, and simulated completion for development.
