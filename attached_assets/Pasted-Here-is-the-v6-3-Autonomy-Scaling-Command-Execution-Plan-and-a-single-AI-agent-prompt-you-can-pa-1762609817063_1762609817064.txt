@@ -1,0 +1,171 @@
+Here is the v6.3 Autonomy & Scaling — Command Execution Plan and a single AI-agent prompt you can paste to implement it.
+
+
+---
+
+v6.3 Goals
+
+Auto-scale workers from live SLO + cost.
+
+Auto-recover on incidents.
+
+Expand retention analytics (DAU/WAU/MAU).
+
+Predict 30-day costs from Stripe + infra.
+
+One-click nightly integrity check.
+
+
+Prereqs (set once)
+
+Add these env vars where they live now:
+
+Backend (Replit): DAILY_SPEND_LIMIT (e.g., 50), REDIS_URL (set), STRIPE_SECRET_KEY (set), ADMIN_TOKEN (set), JWT_SECRET (set).
+
+Frontend (Vercel): NEXT_PUBLIC_API_URL=https://api.levqor.ai, NEXT_PUBLIC_SENTRY_DSN_FE (already used in 6.2).
+
+
+
+---
+
+Paste this to your AI agent (single prompt)
+
+You are to implement LEVQOR v6.3 “Autonomy & Scaling” with zero interactive questions. Fail closed on any error and print the failing step. Do not change existing working features. Keep code style consistent with v6.0–6.2.
+
+SCOPE
+1) Autoscale controller
+2) Automated incident response
+3) Retention analytics (DAU/WAU/MAU)
+4) Predictive cost engine (30-day)
+5) verify_all.sh consolidator
+6) Nightly schedule hooks (no external cron hard-dep; respect existing scheduler)
+
+DIRS (keep)
+- Python backend: root (run.py, monitors/, scripts/)
+- Frontend: levqor-site/
+
+IMPLEMENTATION
+
+[1] AUTOSCALE CONTROLLER
+- Create monitors/autoscale.py:
+  - Inputs: queue_depth, P95 latency, error_rate, DAILY_SPEND_LIMIT, spend_last_24h.
+  - Policy:
+    * If P95>150ms OR queue_depth>10 → scale_up one step (max 4 workers).
+    * If P95<40ms AND queue_depth==0 for 10 min → scale_down one step (min 1).
+    * If spend_last_24h >= DAILY_SPEND_LIMIT*0.9 → freeze scale_up.
+  - Expose GET /ops/autoscale/dryrun → returns recommended action.
+  - Expose POST /ops/autoscale/apply → applies action:
+    * Call internal function to update worker count flag in config/flags.json (e.g., WORKER_COUNT).
+    * Trigger graceful reload hook already used by queue system (reuse Phase-4 pattern). If hook absent, no-op and return message.
+- Add Prometheus gauges: levqor_worker_target, levqor_autoscale_events_total.
+
+[2] INCIDENT RESPONSE
+- Create monitors/incident_response.py:
+  - POST /ops/recover:
+    * If error_rate>1% or last 5m failures>0: flush DLQ to retry queue, restart queue workers (if supported), rotate app process if feature flag NEW_QUEUE_ENABLED is true.
+    * Always write structured JSON to logs/incidents.log.
+  - Integrate Telegram alert helper if TELEGRAM_BOT_TOKEN present: send compact status on invocation result.
+- Extend monitors/slo_watchdog.py to call /ops/recover automatically when 3 consecutive SLO breaches occur within 10 minutes (cool-down 30 minutes).
+
+[3] RETENTION ANALYTICS
+- DB: add analytics_aggregates table if not exists: day(date), dau(int), wau(int), mau(int).
+- Add scripts/aggregate_retention.py:
+  - Computes DAU/WAU/MAU from auth/audit logs and users table.
+  - Upserts daily row.
+- API: GET /admin/retention (ADMIN_TOKEN) → returns last 30 entries.
+- Frontend: levqor-site/src/components/AnalyticsWidget.tsx:
+  - Add a “Retention” card with DAU/WAU/MAU, mini-sparkline from last 14 days. Auto-refresh 60s.
+  - Use existing dashboard layout; no new libs.
+
+[4] PREDICTIVE COST ENGINE
+- Create scripts/cost_predict.py:
+  - Uses Stripe charges (last 30d) + infra estimates (Replit+Redis from constants you already show in cost dashboards) + OpenAI usage if available.
+  - Output: forecast_next_30d, confidence_low/high (simple linear trend + 20% buffer).
+  - Expose GET /ops/cost/forecast → JSON with breakdown and forecast.
+  - Export Prometheus gauges: levqor_cost_forecast_30d, levqor_cost_today.
+
+[5] VERIFY ALL CONSOLIDATOR
+- Create verify_all.sh that runs:
+  1) public_smoke.sh
+  2) verify_v6_2.sh
+  3) curl checks for: /ops/autoscale/dryrun, /ops/recover (dry-run param), /admin/retention (with ADMIN_TOKEN), /ops/cost/forecast
+  4) Asserts HTTP 200/OK and required keys present; prints PASS/FAIL summary.
+
+[6] SCHEDULING
+- Extend internal scheduler (existing APScheduler):
+  - 00:05 UTC daily → scripts/aggregate_retention.py
+  - Every 5 min → monitors/slo_watchdog.py
+  - 09:00 Europe/London → scripts/ops_summary.py --type daily (already implemented; ensure idempotent)
+  - 02:00 UTC Mon → backup_cycle.sh (if present) or existing backup job
+  - 02:10 UTC Mon → scripts/cost_predict.py --persist (writes last_forecast.json)
+
+SECURITY/CONFIG
+- Do not add new external dependencies except: Python: none beyond existing; JS: none. Reuse ioredis if needed client-side.
+- All admin endpoints require ADMIN_TOKEN header.
+- No secrets printed. No PII logged. Structured JSON logs only.
+
+TESTS
+- Add to verify_all.sh:
+  - Ensure /ops/autoscale/dryrun returns an action among {scale_up, scale_down, freeze, hold}.
+  - Ensure /ops/recover returns ok:true in dry-run.
+  - Ensure /admin/retention returns arrays with dau/wau/mau ints.
+  - Ensure /ops/cost/forecast returns forecast_next_30d number.
+
+ROLLBACK
+- Changes are additive and flag-guarded. If issues:
+  - Set flags: AUTOSCALE_ENABLED=false, INCIDENT_AUTORECOVER=false.
+  - Re-run verify_all.sh.
+
+OUTPUT
+- Print:
+  - File list created/modified with line counts.
+  - POST-deploy commands to run:
+    * ./verify_all.sh
+    * curl -sS https://api.levqor.ai/ops/autoscale/dryrun
+    * curl -sS -H "X-ADMIN-TOKEN: $ADMIN_TOKEN" https://api.levqor.ai/admin/retention
+    * curl -sS https://api.levqor.ai/ops/cost/forecast
+- If any step fails, stop and print “FAILED @ <step>”.
+
+BEGIN.
+
+
+---
+
+After the agent finishes
+
+1. Run:
+
+
+
+./verify_all.sh
+
+2. Sanity checks:
+
+
+
+curl -sS https://api.levqor.ai/ops/autoscale/dryrun
+curl -sS -H "X-ADMIN-TOKEN: $ADMIN_TOKEN" https://api.levqor.ai/admin/retention
+curl -sS https://api.levqor.ai/ops/cost/forecast
+
+3. Enable flags (if off) in config/flags.json:
+
+
+
+AUTOSCALE_ENABLED: true
+
+INCIDENT_AUTORECOVER: true
+
+
+Cutover rules
+
+If P95 or queue spikes during launch, autoscale should move target workers up one step within 60s.
+
+If spend forecast > 80% of limit, expect “freeze” action from autoscale.
+
+
+Rollback
+
+Set both flags to false and reload. No code reverts needed.
+
+
+This is the fastest path.

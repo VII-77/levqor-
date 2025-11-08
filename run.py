@@ -35,6 +35,12 @@ if os.environ.get("SENTRY_DSN"):
     except Exception as e:
         log.warning(f"Sentry init failed: {e}")
 
+try:
+    from monitors.scheduler import get_scheduler
+    _scheduler_instance = get_scheduler()
+except Exception as e:
+    log.warning(f"Scheduler initialization skipped: {e}")
+
 app = Flask(__name__, 
     static_folder='public',
     static_url_path='/public')
@@ -93,6 +99,16 @@ def get_db():
         _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_referrals_user_id ON referrals(user_id)")
         _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_referrals_source ON referrals(source)")
         _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_referrals_created_at ON referrals(created_at)")
+        
+        _db_connection.execute("""
+          CREATE TABLE IF NOT EXISTS analytics_aggregates(
+            day DATE PRIMARY KEY,
+            dau INTEGER NOT NULL DEFAULT 0,
+            wau INTEGER NOT NULL DEFAULT 0,
+            mau INTEGER NOT NULL DEFAULT 0,
+            computed_at TEXT NOT NULL
+          )
+        """)
         
         _db_connection.execute("PRAGMA journal_mode=WAL")
         _db_connection.execute("PRAGMA synchronous=NORMAL")
@@ -658,6 +674,115 @@ def billing_health():
         "webhook_secret_configured": has_webhook_secret,
         "timestamp": int(time())
     }), 200 if healthy else 503
+
+@app.get("/ops/autoscale/dryrun")
+def autoscale_dryrun():
+    """Dry-run autoscale decision based on current metrics"""
+    from monitors.autoscale import get_controller
+    
+    queue_depth = int(request.args.get("queue_depth", 0))
+    p95_latency = float(request.args.get("p95_latency_ms", 0))
+    error_rate = float(request.args.get("error_rate", 0))
+    
+    controller = get_controller()
+    decision = controller.decide_action(queue_depth, p95_latency, error_rate)
+    
+    return jsonify(decision), 200
+
+@app.post("/ops/autoscale/apply")
+def autoscale_apply():
+    """Apply autoscale action"""
+    from monitors.autoscale import get_controller
+    
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "")
+    if token != ADMIN_TOKEN:
+        return jsonify({"error": "unauthorized"}), 401
+    
+    data = request.get_json() or {}
+    queue_depth = int(data.get("queue_depth", 0))
+    p95_latency = float(data.get("p95_latency_ms", 0))
+    error_rate = float(data.get("error_rate", 0))
+    
+    controller = get_controller()
+    decision = controller.decide_action(queue_depth, p95_latency, error_rate)
+    result = controller.apply_action(decision)
+    
+    return jsonify(result), 200
+
+@app.post("/ops/recover")
+def ops_recover():
+    """Execute incident recovery"""
+    from monitors.incident_response import get_responder
+    
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "")
+    if token != ADMIN_TOKEN:
+        return jsonify({"error": "unauthorized"}), 401
+    
+    data = request.get_json() or {}
+    error_rate = float(data.get("error_rate", 0))
+    recent_failures = int(data.get("recent_failures", 0))
+    dry_run = bool(data.get("dry_run", False))
+    
+    responder = get_responder()
+    result = responder.recover(error_rate, recent_failures, dry_run)
+    
+    return jsonify(result), 200
+
+@app.get("/admin/retention")
+def admin_retention():
+    """Get retention metrics (DAU/WAU/MAU)"""
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "")
+    if token != ADMIN_TOKEN:
+        return jsonify({"error": "unauthorized"}), 401
+    
+    db = get_db()
+    cursor = db.cursor()
+    
+    cursor.execute("""
+        SELECT day, dau, wau, mau, computed_at
+        FROM analytics_aggregates
+        ORDER BY day DESC
+        LIMIT 30
+    """)
+    
+    rows = cursor.fetchall()
+    metrics = [
+        {
+            "day": row[0],
+            "dau": row[1],
+            "wau": row[2],
+            "mau": row[3],
+            "computed_at": row[4]
+        }
+        for row in rows
+    ]
+    
+    return jsonify({
+        "ok": True,
+        "metrics": metrics,
+        "count": len(metrics)
+    }), 200
+
+@app.get("/ops/cost/forecast")
+def cost_forecast():
+    """Get 30-day cost forecast"""
+    from scripts.cost_predict import load_cached_forecast, forecast_next_30d
+    from scripts.cost_predict import get_stripe_charges_last_30d, estimate_infra_costs, estimate_openai_usage
+    
+    cached = load_cached_forecast()
+    if cached:
+        return jsonify(cached), 200
+    
+    stripe_charges = get_stripe_charges_last_30d()
+    infra = estimate_infra_costs()
+    openai = estimate_openai_usage()
+    
+    forecast = forecast_next_30d(stripe_charges, infra, openai)
+    
+    return jsonify(forecast), 200
 
 OPENAPI = {
     "openapi": "3.0.0",
