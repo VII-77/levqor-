@@ -35,44 +35,6 @@ export default function DocsPage() {
             <p className="text-gray-600 mb-4">
               All API requests require an API key passed in the <code className="bg-gray-100 px-2 py-1 rounded">X-Api-Key</code> header.
             </p>
-            
-            <div className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto">
-              <pre className="text-sm">
-{`curl https://api.levqor.ai/api/v1/intake \\
-  -H "X-Api-Key: your_api_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{"workflow_id": "wf_123", "data": {}}'`}
-              </pre>
-            </div>
-          </section>
-
-          <section className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Endpoints</h2>
-            
-            <div className="space-y-6">
-              <div className="border-l-4 border-blue-600 pl-4">
-                <h4 className="font-mono text-sm font-bold text-gray-900">POST /api/v1/intake</h4>
-                <p className="text-gray-600 mt-2">Submit a new job to the queue</p>
-              </div>
-
-              <div className="border-l-4 border-green-600 pl-4">
-                <h4 className="font-mono text-sm font-bold text-gray-900">GET /api/v1/status/:job_id</h4>
-                <p className="text-gray-600 mt-2">Check the status of a job</p>
-              </div>
-
-              <div className="border-l-4 border-purple-600 pl-4">
-                <h4 className="font-mono text-sm font-bold text-gray-900">GET /health</h4>
-                <p className="text-gray-600 mt-2">Health check endpoint</p>
-              </div>
-            </div>
-          </section>
-
-          <section className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Support</h2>
-            <p className="text-gray-600">
-              Need help? Contact our support team or check the{' '}
-              <a href="https://api.levqor.ai/status" className="text-blue-600 hover:underline">system status</a>.
-            </p>
           </section>
         </div>
       </div>
