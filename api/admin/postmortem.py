@@ -6,7 +6,8 @@ bp = Blueprint('admin_postmortem', __name__)
 @bp.route('/api/admin/postmortem', methods=['POST'])
 def gen_post():
     """Generate automated postmortem report"""
-    inc = request.json.get('incident', {})
+    data = request.get_json(force=True) or {}
+    inc = data.get('incident', {})
     md = f"""# Postmortem Report
 Date: {datetime.datetime.utcnow().isoformat()}
 Summary: {inc.get('summary', 'N/A')}
