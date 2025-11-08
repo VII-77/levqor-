@@ -1,0 +1,131 @@
+╔══════════════════════════════════════════════════════════════╗
+║        🔧  LEVQOR v6.2 COMMAND EXECUTION PLAN                ║
+║              “Telemetry + Retention Expansion”               ║
+╚══════════════════════════════════════════════════════════════╝
+
+🎯 OBJECTIVE
+Transform Levqor v6.1 (SSO-secure, production-ready) into a self-healing, observability-rich SaaS with complete retention, telemetry, and operational automation.
+
+──────────────────────────────────────────────────────────────
+PHASE 6.2 MODULES
+──────────────────────────────────────────────────────────────
+
+📡 1. SENTRY TELEMETRY (FE/BE)
+→ Purpose: capture real-time errors and anomalies.
+→ Steps:
+  1. Add to Replit (Backend):
+     export SENTRY_DSN=<existing>
+  2. Add to Vercel (Frontend):
+     NEXT_PUBLIC_SENTRY_DSN_FE=<frontend DSN>
+  3. In Next.js (`app/layout.tsx`):
+     import * as Sentry from "@sentry/nextjs";
+     Sentry.init({ dsn: process.env.NEXT_PUBLIC_SENTRY_DSN_FE, tracesSampleRate: 1.0 });
+  4. In Flask (`app.py`):
+     import sentry_sdk
+     sentry_sdk.init(dsn=os.getenv("SENTRY_DSN"), traces_sample_rate=1.0)
+→ Verification: 
+     curl /ops/uptime → check “sentry_trace_id” header present.
+
+🧠 WHY: Enables end-to-end observability.
+⚙️ IMPACT IF SKIPPED: silent backend or frontend failures.
+
+──────────────────────────────────────────────────────────────
+📈 2. OPS PING & WEEKLY SUMMARY
+→ Purpose: automatic operational visibility.
+→ Steps:
+  1. Create `/scripts/ops_summary.py`
+     - Fetch uptime, DB size, error rate, cost.
+     - Email summary via Resend.
+  2. Add Make.com or cron job:
+     - Daily 09:00 London: ping `/status` and `/ops/uptime`
+     - Sunday 09:00: run `ops_summary.py`
+  3. Include Quick Links:
+     - Backend: /status, /ops/uptime
+     - Stripe Dashboard, Resend Dashboard, GitHub Actions
+
+🧠 WHY: Automated reporting reduces manual oversight.
+⚙️ IMPACT IF SKIPPED: Ops status drift and silent cost spikes.
+
+──────────────────────────────────────────────────────────────
+🔁 3. RETENTION + REFERRAL TRACKING
+→ Purpose: measure user retention and conversion.
+→ Steps:
+  1. Add DB table `referrals`:
+     (id, user_id, source, created_at)
+  2. Extend sign-up flow:
+     - Capture `?ref=<source>` param → log to `referrals`
+  3. Create `/admin/analytics` endpoint:
+     - Return signups, returning users, top referrals.
+  4. Dashboard widget: “Top 3 referral sources”.
+
+🧠 WHY: Quantifies product growth and acquisition channels.
+⚙️ IMPACT IF SKIPPED: No actionable growth metrics.
+
+──────────────────────────────────────────────────────────────
+🛡️ 4. ENTERPRISE COMPLIANCE PACK (Optional)
+→ Purpose: strengthen audit & compliance posture.
+→ Steps:
+  1. Enable Azure Entra ID Premium P1 (for optional MFA).
+  2. Add `SOC2_LOGS_ENABLED=true` → store `/audit` in S3/Drive.
+  3. Add `/ops/compliance` endpoint summarizing retention policy.
+
+🧠 WHY: Positions Levqor for enterprise/VC audits.
+⚙️ IMPACT IF SKIPPED: reduced investor-grade assurance.
+
+──────────────────────────────────────────────────────────────
+📂 FILES TO BE GENERATED
+──────────────────────────────────────────────────────────────
+- `scripts/ops_summary.py`  → auto email + Drive upload
+- `api/admin/analytics.py`  → referral + usage analytics
+- `frontend/components/AnalyticsWidget.tsx`  → dashboard card
+- `frontend/lib/sentryClient.ts`  → Sentry FE init
+- `docs/PHASE_6_2_EXECUTION.md`  → full runbook
+- `verify_v6_2.sh`  → integration & telemetry test
+
+──────────────────────────────────────────────────────────────
+🚀 EXECUTION COMMANDS
+──────────────────────────────────────────────────────────────
+# Backend
+git checkout -b phase-6.2
+mkdir -p scripts api/admin
+touch scripts/ops_summary.py api/admin/analytics.py
+# Frontend
+cd levqor-site
+touch components/AnalyticsWidget.tsx lib/sentryClient.ts
+cd ..
+# Docs & Verification
+touch docs/PHASE_6_2_EXECUTION.md verify_v6_2.sh
+git add .
+git commit -m "v6.2: Telemetry + Retention Expansion"
+git push origin phase-6.2
+
+──────────────────────────────────────────────────────────────
+✅ SUCCESS CRITERIA
+──────────────────────────────────────────────────────────────
+1. Sentry FE/BE traces visible within 1 minute.
+2. /ops/uptime returns HTTP 200 with telemetry headers.
+3. ops_summary.py auto-emails daily report.
+4. Referral analytics visible at /admin/analytics.
+5. Dashboard shows AnalyticsWidget live data.
+6. All tests pass in verify_v6_2.sh.
+
+──────────────────────────────────────────────────────────────
+📊 SUMMARY TABLE
+──────────────────────────────────────────────────────────────
+| Module                  | Status | Why It Matters                         |
+|--------------------------|--------|----------------------------------------|
+| Sentry FE/BE             | 🔧     | Catch runtime errors instantly          |
+| Ops Ping + Summary       | 🔧     | Auto health tracking                    |
+| Retention + Referrals    | 🔧     | Growth and user behavior insights       |
+| Compliance Pack (opt)    | 🕐     | Enterprise readiness                    |
+
+──────────────────────────────────────────────────────────────
+END OF EXECUTION PLAN
+──────────────────────────────────────────────────────────────
+🧠  Next Action:
+Run these commands in Replit:
+`
+git checkout -b phase-6.2
+./deploy_frontend_complete.sh
+`
+Then I’ll auto-verify all 6.2 integrations and confirm “Telemetry=active Retention=enabled Compliance=ready”.

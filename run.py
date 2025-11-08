@@ -17,8 +17,15 @@ log = logging.getLogger("levqor")
 if os.environ.get("SENTRY_DSN"):
     try:
         import sentry_sdk
-        sentry_sdk.init(dsn=os.environ.get("SENTRY_DSN"), traces_sample_rate=0.1)
-        log.info("Sentry initialized")
+        from sentry_sdk.integrations.flask import FlaskIntegration
+        sentry_sdk.init(
+            dsn=os.environ.get("SENTRY_DSN"),
+            integrations=[FlaskIntegration()],
+            traces_sample_rate=1.0,
+            environment=os.environ.get("ENVIRONMENT", "production"),
+            release=f"levqor-backend@{VERSION}"
+        )
+        log.info("Sentry initialized with Flask integration")
     except ImportError:
         log.warning("SENTRY_DSN set but sentry_sdk not installed")
     except Exception as e:
