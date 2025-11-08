@@ -4,6 +4,7 @@ Autoscale Controller - SLO-based worker scaling with cost guardrails
 import os
 import json
 import logging
+import sqlite3
 from datetime import datetime, timedelta
 from collections import deque
 from typing import Dict, Any, Literal
@@ -19,6 +20,19 @@ class AutoscaleController:
         self.metrics_history = deque(maxlen=10)
         self.last_scale_down_check = datetime.utcnow()
         self.scale_events = 0
+    
+    def _get_flag(self, key: str, default: str = "false") -> bool:
+        """Read feature flag from database"""
+        try:
+            conn = sqlite3.connect("levqor.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM feature_flags WHERE key=?", (key,))
+            row = cursor.fetchone()
+            conn.close()
+            value = row[0] if row else default
+            return value.lower() == "true"
+        except Exception:
+            return default.lower() == "true"
         
     def get_current_worker_count(self) -> int:
         """Read current worker count from config"""
@@ -91,7 +105,30 @@ class AutoscaleController:
         - If P95>150ms OR queue_depth>10 → scale_up (max 4 workers)
         - If P95<40ms AND queue_depth==0 for 10min → scale_down (min 1)
         - If spend >= 90% of daily limit → freeze scale_up
+        - If STABILIZE_MODE=true → freeze all scaling
         """
+        # Check STABILIZE_MODE first
+        if self._get_flag("STABILIZE_MODE", "false"):
+            return {
+                "action": "hold",
+                "current_workers": self.get_current_worker_count(),
+                "target_workers": self.get_current_worker_count(),
+                "reason": "STABILIZE_MODE enabled - all scaling frozen",
+                "timestamp": datetime.utcnow().isoformat(),
+                "stabilize_mode": True
+            }
+        
+        # Check if autoscaling is enabled
+        if not self._get_flag("AUTOSCALE_ENABLED", "false"):
+            return {
+                "action": "hold",
+                "current_workers": self.get_current_worker_count(),
+                "target_workers": self.get_current_worker_count(),
+                "reason": "Autoscaling disabled via feature flag",
+                "timestamp": datetime.utcnow().isoformat(),
+                "autoscale_enabled": False
+            }
+        
         current_workers = self.get_current_worker_count()
         
         if spend_last_24h is None:
