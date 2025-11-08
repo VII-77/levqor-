@@ -8,9 +8,21 @@ import json
 import os
 import logging
 import sys
+import jwt
+from datetime import datetime, timedelta
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 log = logging.getLogger("levqor")
+
+if os.environ.get("SENTRY_DSN"):
+    try:
+        import sentry_sdk
+        sentry_sdk.init(dsn=os.environ.get("SENTRY_DSN"), traces_sample_rate=0.1)
+        log.info("Sentry initialized")
+    except ImportError:
+        log.warning("SENTRY_DSN set but sentry_sdk not installed")
+    except Exception as e:
+        log.warning(f"Sentry init failed: {e}")
 
 app = Flask(__name__, 
     static_folder='public',
@@ -27,6 +39,8 @@ _db_connection = None
 
 API_KEYS = set((os.environ.get("API_KEYS") or "").split(",")) - {""}
 API_KEYS_NEXT = set((os.environ.get("API_KEYS_NEXT") or "").split(",")) - {""}
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-in-prod")
 
 RATE_BURST = int(os.environ.get("RATE_BURST", 20))
 RATE_GLOBAL = int(os.environ.get("RATE_GLOBAL", 200))
@@ -34,6 +48,7 @@ WINDOW = 60
 
 _IP_HITS = defaultdict(deque)
 _ALL_HITS = deque()
+_PROTECTED_PATH_HITS = defaultdict(deque)
 
 def get_db():
     global _db_connection
@@ -89,11 +104,37 @@ def throttle():
     _ALL_HITS.append(now)
     return None
 
+def protected_path_throttle():
+    protected_prefixes = ['/billing/', '/api/partners/', '/api/admin/', '/api/user/', '/webhooks/']
+    if not any(request.path.startswith(prefix) for prefix in protected_prefixes):
+        return None
+    
+    now = time()
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr) or "unknown"
+    key = f"protected:{ip}"
+    
+    dq = _PROTECTED_PATH_HITS[key]
+    while dq and now - dq[0] > WINDOW:
+        dq.popleft()
+    
+    if len(dq) >= 60:
+        resp = jsonify({"error": "rate_limited"})
+        resp.status_code = 429
+        resp.headers["Retry-After"] = "60"
+        return resp
+    
+    dq.append(now)
+    return None
+
 @app.before_request
 def _log_in():
     log.info("in %s %s ip=%s ua=%s", request.method, request.path,
              request.headers.get("X-Forwarded-For", request.remote_addr),
              request.headers.get("User-Agent", "-"))
+    
+    rate_check = protected_path_throttle()
+    if rate_check:
+        return rate_check
 
 @app.after_request
 def add_headers(r):
@@ -135,6 +176,76 @@ def public_metrics():
         "audit_coverage": 100,
         "last_updated": int(time())
     })
+
+@app.post("/audit")
+def audit():
+    if not request.is_json:
+        return bad_request("Content-Type must be application/json")
+    
+    data = request.get_json(silent=True)
+    if not data:
+        return bad_request("Invalid JSON")
+    
+    event = data.get("event", "unknown")
+    email = data.get("email", "unknown")
+    ip = data.get("ip", "")
+    user_agent = data.get("user_agent", "")
+    ts = data.get("ts", int(time() * 1000))
+    
+    audit_entry = json.dumps({
+        "event": event,
+        "email": email,
+        "ip": ip,
+        "user_agent": user_agent,
+        "ts": ts
+    }, separators=(',', ':'))
+    
+    audit_file = os.path.join("logs", "audit.log")
+    try:
+        with open(audit_file, "a") as f:
+            f.write(audit_entry + "\n")
+    except Exception as e:
+        log.warning(f"Failed to write audit log: {e}")
+    
+    return jsonify({"ok": True}), 200
+
+@app.post("/api/admin/impersonate")
+def admin_impersonate():
+    admin_token = request.headers.get("X-ADMIN-TOKEN")
+    if not ADMIN_TOKEN or admin_token != ADMIN_TOKEN:
+        return jsonify({"error": "forbidden"}), 403
+    
+    if not request.is_json:
+        return bad_request("Content-Type must be application/json")
+    
+    data = request.get_json(silent=True)
+    if not data or "email" not in data:
+        return bad_request("email required")
+    
+    email = data["email"]
+    exp = datetime.utcnow() + timedelta(minutes=15)
+    
+    token = jwt.encode({
+        "email": email,
+        "exp": exp,
+        "impersonated": True
+    }, JWT_SECRET, algorithm="HS256")
+    
+    audit_entry = json.dumps({
+        "event": "admin_impersonate",
+        "email": email,
+        "admin_ip": request.headers.get("X-Forwarded-For", request.remote_addr),
+        "ts": int(time() * 1000)
+    }, separators=(',', ':'))
+    
+    audit_file = os.path.join("logs", "audit.log")
+    try:
+        with open(audit_file, "a") as f:
+            f.write(audit_entry + "\n")
+    except Exception as e:
+        log.warning(f"Failed to write audit log: {e}")
+    
+    return jsonify({"token": token}), 200
 
 JOBS = {}
 
