@@ -1,0 +1,63 @@
+You are in the repo root. Do not ask questions. Fail closed with: STEP FAILED: <reason>. Implement Levqor v6.1-A (SSO, sessions, brute-force, audit), verify, deploy to https://levqor.ai.
+
+PRECHECK
+1) Assert paths exist: levqor-site/src/app, run.py. If missing → STEP FAILED: structure mismatch.
+
+FRONTEND — NextAuth + SSO + Rate-limit
+2) Create levqor-site/src/app/api/auth/[...nextauth]/route.ts with NextAuth v5:
+   - Providers: Email (Resend), Google, AzureAD (Microsoft).
+   - Session strategy: 'jwt'. If REDIS_URL present, also configure @next-auth/redis-adapter (ioredis) for sessions.
+   - Callbacks: link accounts by email, forbid domains in DENYLIST = ['mailinator.com','tempmail.com'].
+3) Update levqor-site/auth.ts to export authOptions used by route.ts. events.signIn/signOut should POST fire-and-forget JSON to https://api.levqor.ai/audit ({event,email,ua,ip?,ts}).
+4) Add levqor-site/src/middleware.ts to protect /dashboard and /admin with NextAuth; unauth → redirect /signin.
+5) Add levqor-site/src/lib/rateLimit.ts providing per-IP+email limiter: 5 failed auth attempts/min; Redis-backed if REDIS_URL else in-memory Map with TTL.
+6) Wrap POST handlers under /api/auth/* to apply limiter; on limit → return 429 JSON {error:'rate_limited'}.
+7) Update levqor-site/src/app/signin/page.tsx:
+   - Keep magic-link form.
+   - Add “Continue with Google” and “Continue with Microsoft” buttons.
+   - Show small line: “SSO enabled • AES-128 at rest • GDPR”.
+8) If NEXT_PUBLIC_SENTRY_DSN_FE present, init Sentry in layout.tsx (no-op if missing).
+9) Ensure deps: npm i next-auth @next-auth/redis-adapter ioredis @types/node @types/react --save.
+
+BACKEND — Brute-force + Audit + Admin Impersonate
+10) In run.py add a before_request limiter:
+    - Paths starting with /billing/, /api/partners/, /api/admin/, /api/user/, /webhooks/:
+      Track per-IP sliding window 60/min via Redis if REDIS_URL else in-process LRU. On exceed → 429 JSON.
+11) Add POST /audit endpoint:
+    - Accept {event,email,ip?,user_agent?,ts?}. Append compact JSON to logs/audit.log. Return {"ok":true}. No PII beyond email.
+12) Add POST /api/admin/impersonate:
+    - Require header X-ADMIN-TOKEN == $ADMIN_TOKEN.
+    - Body {email}. Issue short-lived server JWT (15m) for that user and return {token}. Append audit.
+13) If SENTRY_DSN present, init Sentry SDK (Flask). Silent if absent.
+
+ENV VALIDATION (warn, don’t fail)
+14) FRONTEND: NEXTAUTH_SECRET, RESEND_API_KEY, GOOGLE_CLIENT_ID/SECRET, MICROSOFT_CLIENT_ID/SECRET, REDIS_URL, NEXT_PUBLIC_SENTRY_DSN_FE.
+    BACKEND: JWT_SECRET, REDIS_URL, SENTRY_DSN, ADMIN_TOKEN.
+    If any SSO creds missing: print “SSO pending: missing creds” and leave email login working.
+    If REDIS_URL missing: print “Sessions=JWT; RateLimit=in-memory”.
+
+BUILD + DEPLOY
+15) cd levqor-site && (npm ci || npm i) || STEP FAILED: npm install
+16) npm run build || STEP FAILED: next build
+17) vercel --prod --yes --name levqor \
+    -e NEXTAUTH_URL=https://levqor.ai \
+    -e NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
+    -e RESEND_API_KEY="$RESEND_API_KEY" \
+    -e AUTH_FROM_EMAIL=no-reply@levqor.ai \
+    -e NEXT_PUBLIC_API_URL=https://api.levqor.ai \
+    -e GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" -e GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+    -e MICROSOFT_CLIENT_ID="$MICROSOFT_CLIENT_ID" -e MICROSOFT_CLIENT_SECRET="$MICROSOFT_CLIENT_SECRET" \
+    -e NEXT_PUBLIC_SENTRY_DSN_FE="$NEXT_PUBLIC_SENTRY_DSN_FE" \
+    -e REDIS_URL="$REDIS_URL" \
+    || STEP FAILED: vercel deploy
+
+VERIFY
+18) FE:
+    - GET https://levqor.ai/signin → 200; page shows Google/Microsoft buttons.
+    - GET https://levqor.ai/dashboard unauth → 307 to /signin.
+19) BE:
+    - GET https://api.levqor.ai/status → {"status":"pass"}.
+    - POST https://api.levqor.ai/audit with sample JSON → 200 {"ok":true}.
+    - Send 6 unauth POSTs to /api/partners/create within 1 min → subsequent returns 429.
+20) PRINT SUMMARY LINE:
+    SSO=<enabled|pending> Sessions=<redis|jwt> BruteForce=<active> Audit=<ok> Deploy=<ok>
