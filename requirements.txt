@@ -5,3 +5,4 @@ requests==2.31.0
 sentry-sdk[flask]==1.40.0
 APScheduler==3.10.4
 APScheduler==3.10.4
+scikit-learn==1.5.2
