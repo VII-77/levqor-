@@ -675,8 +675,6 @@ OPENAPI = {
 def openapi():
     return jsonify(OPENAPI)
 
-from api.v1.user_management import bp as user_bp
-from api.v1.analytics import bp as analytics_bp
 from api.admin.flags import bp as flags_bp
 from api.admin.ledger import bp as ledger_bp
 from api.admin.growth import bp as growth_bp
@@ -684,8 +682,6 @@ from api.billing.pricing import bp as pricing_bp
 from api.billing.discounts import bp as discounts_bp
 from monitors.auto_tune import suggest_tuning
 
-app.register_blueprint(user_bp)
-app.register_blueprint(analytics_bp)
 app.register_blueprint(flags_bp)
 app.register_blueprint(ledger_bp)
 app.register_blueprint(growth_bp)
@@ -700,7 +696,7 @@ def auto_tune_endpoint():
     return jsonify({"status": "ok", "suggestions": suggestions}), 200
 
 from monitors.scheduler import init_scheduler
-init_scheduler(app)
+init_scheduler()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
