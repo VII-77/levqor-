@@ -30,6 +30,17 @@ waitForPort = 5000
 localPort = 5000
 externalPort = 80
 
+<<<<<<< HEAD
+=======
+[[ports]]
+localPort = 41029
+externalPort = 3001
+
+[[ports]]
+localPort = 44309
+externalPort = 3000
+
+>>>>>>> 28a9b12 (Commit)
 [deployment]
 deploymentTarget = "autoscale"
 run = ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "30", "--bind", "0.0.0.0:5000", "--reuse-port", "--log-level", "info", "run:app"]
