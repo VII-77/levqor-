@@ -3,7 +3,7 @@ import datetime
 
 bp = Blueprint('admin_postmortem', __name__)
 
-@bp.route('', methods=['POST'])
+@bp.route('/api/admin/postmortem', methods=['POST'])
 def gen_post():
     """Generate automated postmortem report"""
     data = request.get_json(force=True) or {}

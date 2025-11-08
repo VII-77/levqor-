@@ -690,23 +690,9 @@ app.register_blueprint(ledger_bp)
 app.register_blueprint(growth_bp)
 app.register_blueprint(pricing_bp)
 app.register_blueprint(discounts_bp)
-app.register_blueprint(admin_insights_bp, url_prefix='/admin')
-app.register_blueprint(admin_runbooks_bp, url_prefix='/admin/runbooks')
-app.register_blueprint(admin_postmortem_bp, url_prefix='/admin/postmortem')
-
-@app.route("/api/admin/<path:p>", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
-def compat_admin_proxy(p):
-    """Compatibility proxy: /api/admin/* → /admin/*"""
-    with app.test_client() as c:
-        headers = {k: v for k, v in request.headers if k.lower() != "host"}
-        resp = c.open(
-            f"/admin/{p}",
-            method=request.method,
-            data=request.get_data(),
-            headers=headers,
-            query_string=request.query_string
-        )
-    return Response(resp.get_data(), status=resp.status_code, headers=dict(resp.headers))
+app.register_blueprint(admin_insights_bp)
+app.register_blueprint(admin_runbooks_bp)
+app.register_blueprint(admin_postmortem_bp)
 
 @app.get("/ops/auto_tune")
 def auto_tune_endpoint():
