@@ -1,50 +1,73 @@
 """
-ML-based anomaly detection for latency metrics using IsolationForest.
-Trains in-memory on sliding window of recent latencies.
+Statistical anomaly detection for latency metrics.
+Uses Z-score and IQR methods for robust anomaly detection.
+Fallback implementation - works without sklearn.
 """
-from sklearn.ensemble import IsolationForest
-import numpy as np
 import time
 import logging
+import statistics
 
 logger = logging.getLogger("levqor.anomaly_ai")
 
 class AnomalyAI:
-    """IsolationForest-based anomaly detector for latency metrics"""
+    """Statistical anomaly detector for latency metrics (Z-score + IQR)"""
     
     def __init__(self):
-        self.clf = None
         self.last_train = 0
         self.window = []
+        self.mean = 0
+        self.std = 0
+        self.q1 = 0
+        self.q3 = 0
+        self.iqr = 0
+        self.trained = False
     
     def fit(self, arr):
-        """Train model on latency array"""
+        """Calculate statistics on latency array"""
         if len(arr) < 10:
             logger.warning("Not enough data to train anomaly model")
             return
         
-        X = np.array(arr).reshape(-1, 1)
-        self.clf = IsolationForest(
-            contamination=0.03,
-            random_state=42,
-            n_estimators=100
-        ).fit(X)
+        self.mean = statistics.mean(arr)
+        self.std = statistics.stdev(arr) if len(arr) > 1 else 0
+        
+        # Calculate IQR
+        sorted_arr = sorted(arr)
+        n = len(sorted_arr)
+        self.q1 = sorted_arr[n // 4]
+        self.q3 = sorted_arr[3 * n // 4]
+        self.iqr = self.q3 - self.q1
+        
+        self.trained = True
         self.last_train = time.time()
-        logger.info(f"Trained anomaly model on {len(arr)} samples")
+        logger.info(f"Trained anomaly model on {len(arr)} samples (mean={self.mean:.1f}, std={self.std:.1f})")
     
     def score(self, x):
-        """Score a single latency value"""
-        if not self.clf:
+        """Score a single latency value using Z-score and IQR"""
+        if not self.trained:
             return {"ready": False, "reason": "model_not_trained"}
         
-        score = self.clf.decision_function(np.array([[x]]))[0]
-        is_anomaly = score < -0.15
+        # Z-score method
+        z_score = abs(x - self.mean) / (self.std + 1e-6)
+        
+        # IQR method
+        iqr_lower = self.q1 - 1.5 * self.iqr
+        iqr_upper = self.q3 + 1.5 * self.iqr
+        iqr_anomaly = x < iqr_lower or x > iqr_upper
+        
+        # Combined detection: anomaly if Z>3 OR outside IQR bounds
+        is_anomaly = z_score > 3.0 or iqr_anomaly
+        
+        # Normalize score to range similar to IsolationForest
+        normalized_score = -z_score / 3.0  # Maps -1 to 1 roughly
         
         return {
             "ready": True,
-            "score": float(score),
+            "score": float(normalized_score),
             "anomaly": is_anomaly,
-            "latency_ms": x
+            "latency_ms": x,
+            "z_score": round(z_score, 2),
+            "method": "z-score+iqr"
         }
     
     def update_window(self, lat):
