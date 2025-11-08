@@ -107,6 +107,40 @@ def update_kv_costs():
     except Exception as e:
         log.error(f"KV cost update failed: {e}")
 
+def run_growth_retention():
+    """Daily growth retention aggregation by source"""
+    log.info("Running growth retention aggregation...")
+    try:
+        result = subprocess.run(
+            ["python3", "scripts/aggregate_growth_retention.py"],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        if result.returncode == 0:
+            log.info("✅ Growth retention aggregation complete")
+        else:
+            log.error(f"Growth retention failed: {result.stderr}")
+    except Exception as e:
+        log.error(f"Growth retention error: {e}")
+
+def run_governance_report():
+    """Weekly governance report email"""
+    log.info("Running weekly governance report...")
+    try:
+        result = subprocess.run(
+            ["python3", "scripts/governance_report.py"],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        if result.returncode == 0:
+            log.info("✅ Governance report sent")
+        else:
+            log.error(f"Governance report failed: {result.stderr}")
+    except Exception as e:
+        log.error(f"Governance report error: {e}")
+
 def init_scheduler():
     """Initialize and start APScheduler"""
     try:
@@ -157,8 +191,24 @@ def init_scheduler():
             replace_existing=True
         )
         
+        scheduler.add_job(
+            run_growth_retention,
+            CronTrigger(hour=0, minute=10, timezone='UTC'),
+            id='growth_retention',
+            name='Daily growth retention by source',
+            replace_existing=True
+        )
+        
+        scheduler.add_job(
+            run_governance_report,
+            CronTrigger(day_of_week='sun', hour=9, minute=0, timezone='Europe/London'),
+            id='governance_report',
+            name='Weekly governance email',
+            replace_existing=True
+        )
+        
         scheduler.start()
-        log.info("✅ APScheduler initialized with 5 jobs")
+        log.info("✅ APScheduler initialized with 7 jobs")
         return scheduler
         
     except ImportError:

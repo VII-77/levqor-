@@ -67,6 +67,41 @@ class AutoscaleController:
             log.error(f"Failed to set worker count: {e}")
             return False
     
+    def _get_profit_margin(self) -> float:
+        """
+        Get current profit margin from KV store.
+        Returns margin percentage (0-100).
+        """
+        try:
+            conn = sqlite3.connect("levqor.db")
+            c = conn.cursor()
+            
+            # Get revenue and costs from KV
+            c.execute("SELECT value FROM kv WHERE key='stripe_revenue_30d'")
+            revenue_row = c.fetchone()
+            revenue = float(revenue_row[0]) if revenue_row else 0.0
+            
+            c.execute("SELECT value FROM kv WHERE key='openai_cost_30d'")
+            openai_row = c.fetchone()
+            openai_cost = float(openai_row[0]) if openai_row else 0.0
+            
+            c.execute("SELECT value FROM kv WHERE key='infra_cost_30d'")
+            infra_row = c.fetchone()
+            infra_cost = float(infra_row[0]) if infra_row else 0.0
+            
+            conn.close()
+            
+            total_cost = openai_cost + infra_cost
+            if revenue == 0:
+                return 0.0
+            
+            margin = ((revenue - total_cost) / revenue) * 100
+            return round(margin, 2)
+            
+        except Exception as e:
+            log.warning(f"Failed to calculate profit margin: {e}")
+            return 100.0  # Default to allowing scale if we can't check
+    
     def get_spend_last_24h(self) -> float:
         """Estimate spend from last 24h (placeholder - integrate with billing)"""
         try:
@@ -129,6 +164,10 @@ class AutoscaleController:
                 "autoscale_enabled": False
             }
         
+        # Profit guard: check if we're profitable before allowing scale-up
+        profit_margin = self._get_profit_margin()
+        profit_frozen = profit_margin < 10.0  # Require at least 10% margin
+        
         current_workers = self.get_current_worker_count()
         
         if spend_last_24h is None:
@@ -151,6 +190,9 @@ class AutoscaleController:
             if spend_frozen:
                 action = "freeze"
                 reason = f"Would scale up but spend ({spend_last_24h:.2f}) >= 90% limit ({spend_threshold:.2f})"
+            elif profit_frozen:
+                action = "freeze"
+                reason = f"Would scale up but profit margin ({profit_margin:.1f}%) < 10% threshold"
             elif current_workers < 4:
                 action = "scale_up"
                 target_workers = current_workers + 1
@@ -181,7 +223,9 @@ class AutoscaleController:
                 "error_rate": error_rate,
                 "spend_last_24h": spend_last_24h,
                 "spend_limit": self.daily_spend_limit,
-                "spend_frozen": spend_frozen
+                "spend_frozen": spend_frozen,
+                "profit_margin_pct": profit_margin,
+                "profit_frozen": profit_frozen
             },
             "timestamp": datetime.utcnow().isoformat()
         }

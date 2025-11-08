@@ -50,9 +50,15 @@ from api.billing.pricing import bp as pricing_bp
 from api.admin.ledger import bp as ledger_bp
 from api.admin.flags import bp as flags_bp
 
+# Register Phase 6.5 blueprints
+from api.admin.growth import bp as growth_admin_bp
+from api.billing.discounts import bp as discounts_bp
+
 app.register_blueprint(pricing_bp)
 app.register_blueprint(ledger_bp)
 app.register_blueprint(flags_bp)
+app.register_blueprint(growth_admin_bp)
+app.register_blueprint(discounts_bp)
 
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_CONTENT_LENGTH", 512 * 1024))
 
@@ -820,6 +826,21 @@ def anomaly_ai():
         latency_ms = 120.0
     
     result = predict(latency_ms)
+    return jsonify(result), 200
+
+@app.get("/ops/auto_tune")
+def auto_tune():
+    """Auto-tuning suggestions for SLO targets"""
+    from monitors.auto_tune import suggest_tuning
+    
+    try:
+        current_p95 = float(request.args.get("current_p95", "80"))
+        current_queue = int(request.args.get("current_queue", "1"))
+    except ValueError:
+        current_p95 = 80.0
+        current_queue = 1
+    
+    result = suggest_tuning(current_p95, current_queue)
     return jsonify(result), 200
 
 @app.get("/admin/flags")
