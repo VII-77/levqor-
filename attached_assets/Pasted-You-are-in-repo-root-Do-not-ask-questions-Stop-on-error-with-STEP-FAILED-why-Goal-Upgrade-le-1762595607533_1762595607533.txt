@@ -1,0 +1,59 @@
+You are in repo root. Do not ask questions. Stop on error with: STEP FAILED: <why>. Goal: Upgrade levqor-site UI for wow factor, keep wiring intact, then deploy to https://levqor.ai and verify.
+
+CHECKS
+1) Require folder levqor-site/src/app. If missing → STEP FAILED: frontend not found.
+
+CHANGES (edit/create files under levqor-site)
+2) Add components:
+   - components/StatusPill.tsx: fetch https://api.levqor.ai/status every 30s; render PASS=green, else red.
+   - components/Hero.tsx: bold headline, subhead, CTA buttons (/signin, /pricing), include <StatusPill/>.
+   - components/TrustSection.tsx: refund line, lock badges, mini FAQ accordion.
+   - components/Logos.tsx: placeholder logo strip.
+   - components/Testimonials.tsx: 3 quotes.
+   - components/DashboardTiles.tsx: three cards with actions when no data.
+
+3) Update pages:
+   - src/app/page.tsx: replace hero with <Hero/>, add <Logos/>, short feature grid, <TrustSection/>, <Testimonials/>.
+   - src/app/pricing/page.tsx: add pricing cards + <TrustSection/> at bottom.
+   - src/app/signin/loading.tsx and error.tsx: friendly states.
+   - src/app/dashboard/page.tsx: import <DashboardTiles/> and render empty state when no usage.
+
+4) Layout/Nav:
+   - src/app/layout.tsx: header links [Pricing, Docs, Sign in, Start free], footer links [Privacy, Terms, Status, Uptime, Contact]; add OG/Twitter meta; include favicon links if not present.
+   - public/: ensure favicon.ico, apple-touch-icon.png; if absent create minimal placeholders.
+
+5) SEO:
+   - src/app/metadata.ts (or export metadata in layout): title “Levqor — The self-driven automation engine”, description, og:image /og.png (create placeholder in public/og.png).
+
+6) Safety:
+   - Do not alter backend URLs or secrets.
+   - Respect env flags for analytics; do nothing if unset.
+
+BUILD+DEPLOY
+7) cd levqor-site; npm ci || npm i
+8) npm run build || (npm i -D @types/node @types/react && npm run build) || STEP FAILED: next build
+9) vercel --prod --yes --name levqor \
+   -e NEXTAUTH_URL=https://levqor.ai \
+   -e NEXT_PUBLIC_API_URL=https://api.levqor.ai \
+   -e AUTH_FROM_EMAIL=no-reply@levqor.ai \
+   -e NEXT_PUBLIC_AUTH_FROM=no-reply@levqor.ai \
+   -e RESEND_API_KEY=$RESEND_API_KEY \
+   -e NEXTAUTH_SECRET=$(grep NEXTAUTH_SECRET .env.production | cut -d= -f2) \
+   || STEP FAILED: vercel deploy
+
+VERIFY (allow 90s SSL settle)
+10) GET https://levqor.ai → 200
+11) GET https://levqor.ai/signin → 200
+12) HEAD https://levqor.ai/dashboard → 200 or 307
+13) GET https://levqor.ai/pricing → 200
+14) GET https://api.levqor.ai/status must be {"status":"pass"}
+Any failure → print "STEP FAILED: <url> <code>".
+
+OUTPUT
+15) Print:
+WOW UPGRADE DEPLOYED
+Home: https://levqor.ai
+Pricing: https://levqor.ai/pricing
+Sign-in: https://levqor.ai/signin
+Dashboard: https://levqor.ai/dashboard
+Notes: Status pill live; trust+testimonials added; dashboard tiles for empty state.
