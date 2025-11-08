@@ -29,3 +29,7 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "30", "--graceful-timeout", "20", "--bind", "0.0.0.0:5000", "--reuse-port", "--log-level", "info", "run:app"]
