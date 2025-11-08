@@ -31,6 +31,21 @@ The frontend is built with Next.js 14 and TypeScript, focusing on a clear authen
 - **Referral Tracking**: `referrals` database table, `POST /api/v1/referrals/track` endpoint, and integration into sign-in flow to capture referral parameters.
 - **Analytics Dashboard**: `GET /admin/analytics` endpoint and React component for displaying user metrics and top referral sources.
 - **Ops Summary Automation**: `scripts/ops_summary.py` for automated HTML email reports via Resend, covering system health, user metrics, and referral data.
+- **Phase 6.4 Intelligence & Revenue Loop** (Nov 2025):
+    - Anomaly AI: Statistical latency detection using Z-score + IQR methods
+    - Adaptive Pricing: Usage-aware pricing model with load factors and performance bonuses
+    - Profitability Ledger: Revenue/costs/payouts tracking via `/api/admin/ledger`
+    - Smart Alert Router: Multi-channel notifications (Slack, Telegram, Email)
+    - Feature Flags: DB-backed flags with admin UI at `/admin/flags`
+    - Stabilize Mode: One-click automation freeze for emergencies
+- **Phase 6.5 Intelligence Feedback & Growth Loop** (Nov 2025):
+    - Auto-Tuning Engine: SLO/p95 target optimization at `/ops/auto_tune`
+    - Growth Intelligence: Funnel analytics and ROI tracking by source
+    - Behavioral Cohort Retention: DAU/WAU/MAU tracking by referral source
+    - Dynamic Discount System: Usage-aware discount code generation
+    - Profit-Driven Autoscale: Prevents scale-up when margin < 10%
+    - Weekly Governance Reporter: Automated HTML email summaries
+    - APScheduler: 7 automated jobs (retention, SLO, ops, cost, KV sync, growth, governance)
 
 ### Feature Specifications
 - **Job Orchestration**: Intake, status tracking, and simulated completion for development.
