@@ -1,4 +1,4 @@
-modules = ["python-3.11"]
+modules = ["nodejs-20", "python-3.11"]
 [agent]
 expertMode = true
 
@@ -30,13 +30,6 @@ waitForPort = 5000
 localPort = 5000
 externalPort = 80
 
-<<<<<<< HEAD
-=======
-[[ports]]
-localPort = 44309
-externalPort = 3000
-
->>>>>>> e37c134 (Add initial project assets and screenshots for reference)
 [deployment]
 deploymentTarget = "autoscale"
 run = ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "30", "--bind", "0.0.0.0:5000", "--reuse-port", "--log-level", "info", "run:app"]
