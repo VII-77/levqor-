@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import DashboardTiles from "@/components/DashboardTiles";
 
 export const dynamic = "force-dynamic";
 
@@ -24,23 +25,31 @@ export default async function Dashboard(){
   const usage = await getUsage();
   
   return (
-    <main className="p-8 max-w-4xl mx-auto space-y-6">
-      <div className="border-b pb-4">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-gray-600 mt-1">
-          Signed in as {session.user.email}
-        </p>
-      </div>
-      
-      <div className="bg-white border rounded-lg p-6 shadow-sm">
-        <h2 className="text-xl font-semibold mb-4">Usage Summary</h2>
-        <pre className="text-sm bg-gray-50 p-4 rounded border overflow-auto">
-          {JSON.stringify(usage, null, 2) || "No usage data available"}
-        </pre>
-      </div>
-      
-      <div className="text-sm text-gray-500">
-        <p>API: {process.env.NEXT_PUBLIC_API_URL}</p>
+    <main className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+        <div className="bg-white rounded-lg shadow p-6 border-b border-gray-200">
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">
+            Welcome back, {session.user.email}
+          </p>
+        </div>
+        
+        {!usage || Object.keys(usage).length === 0 ? (
+          <div className="space-y-6">
+            <div className="text-center py-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Get Started with Levqor</h2>
+              <p className="text-gray-600">You haven't created any workflows yet. Let's get started!</p>
+            </div>
+            <DashboardTiles />
+          </div>
+        ) : (
+          <div className="bg-white border rounded-lg p-6 shadow-sm">
+            <h2 className="text-xl font-semibold mb-4">Usage Summary</h2>
+            <pre className="text-sm bg-gray-50 p-4 rounded border overflow-auto">
+              {JSON.stringify(usage, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
     </main>
   );

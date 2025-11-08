@@ -1,3 +1,5 @@
+import TrustSection from '@/components/TrustSection';
+
 export default function PricingPage() {
   const plans = [
     {
@@ -36,7 +38,7 @@ export default function PricingPage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto mb-20">
           {plans.map((plan) => (
             <div
               key={plan.name}
@@ -46,6 +48,11 @@ export default function PricingPage() {
                   : 'bg-white text-gray-900 shadow-lg'
               }`}
             >
+              {plan.featured && (
+                <div className="bg-blue-500 text-white text-sm font-bold px-3 py-1 rounded-full inline-block mb-4">
+                  MOST POPULAR
+                </div>
+              )}
               <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
               <div className="mb-6">
                 <span className="text-4xl font-bold">{plan.price}</span>
@@ -87,6 +94,8 @@ export default function PricingPage() {
           ))}
         </div>
       </div>
+      
+      <TrustSection />
     </div>
   );
 }

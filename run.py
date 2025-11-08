@@ -123,6 +123,10 @@ def root():
 def health():
     return jsonify({"ok": True, "ts": int(time())}), 200
 
+@app.get("/status")
+def api_status():
+    return jsonify({"status": "pass"}), 200
+
 @app.get("/public/metrics")
 def public_metrics():
     return jsonify({
