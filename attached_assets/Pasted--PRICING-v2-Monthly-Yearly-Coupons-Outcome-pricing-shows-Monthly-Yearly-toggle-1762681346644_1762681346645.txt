@@ -1,0 +1,175 @@
+# === PRICING v2: Monthly + Yearly + Coupons ===
+# Outcome:
+# - /pricing shows Monthly/Yearly toggle
+# - Starter £19/mo or £190/yr (2 months free)
+# - Pro £49/mo or £490/yr (2 months free)
+# - Both buttons hit Stripe Checkout via Next.js API route
+# - Promo codes allowed
+# - Verifies deploy
+
+set -e
+
+echo "== 1) Sanity and secrets =="
+git fetch --all -q || true
+git status -s | head -20 || true
+
+# Backend health must be true (Stripe keys present)
+curl -s https://api.levqor.ai/billing/health
+if ! curl -s https://api.levqor.ai/billing/health | grep -q '"healthy":true'; then
+  echo "❌ Backend Stripe not configured. Stop here."; exit 1;
+fi
+echo "✅ Backend healthy"
+
+echo "== 2) Ensure env example includes price IDs =="
+mkdir -p levqor-site
+cat > levqor-site/.env.example <<'EOF'
+# Public site URL (no trailing slash)
+SITE_URL=https://levqor.ai
+
+# Stripe secret (server-side only)
+STRIPE_SECRET_KEY=sk_live_xxx
+
+# Price IDs (create in Stripe dashboard)
+# Monthly
+STRIPE_PRICE_STARTER=price_starter_month
+STRIPE_PRICE_PRO=price_pro_month
+# Yearly
+STRIPE_PRICE_STARTER_YEAR=price_starter_year
+STRIPE_PRICE_PRO_YEAR=price_pro_year
+EOF
+
+echo "== 3) API route: /api/checkout supports plan+term =="
+mkdir -p levqor-site/src/app/api/checkout
+cat > levqor-site/src/app/api/checkout/route.ts <<'EOF'
+import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const plan = (searchParams.get('plan') || 'starter').toLowerCase(); // starter | pro
+    const term = (searchParams.get('term') || 'monthly').toLowerCase(); // monthly | yearly
+
+    const priceId =
+      plan === 'pro'
+        ? term === 'yearly' ? process.env.STRIPE_PRICE_PRO_YEAR : process.env.STRIPE_PRICE_PRO
+        : term === 'yearly' ? process.env.STRIPE_PRICE_STARTER_YEAR : process.env.STRIPE_PRICE_STARTER;
+
+    if (!priceId) return NextResponse.json({ error: 'Unknown plan/term' }, { status: 400 });
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${process.env.SITE_URL}/thanks?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.SITE_URL}/pricing`,
+      allow_promotion_codes: true,          // promo codes enabled
+      billing_address_collection: 'auto',
+      automatic_tax: { enabled: true },
+    });
+
+    return NextResponse.redirect(session.url!, 303);
+  } catch (e:any) {
+    return NextResponse.json({ error: e.message ?? 'checkout_error' }, { status: 500 });
+  }
+}
+EOF
+
+echo "== 4) Pricing page with Monthly/Yearly toggle =="
+mkdir -p levqor-site/src/app/pricing
+cat > levqor-site/src/app/pricing/page.tsx <<'EOF'
+"use client";
+import { useState } from "react";
+
+type Term = "monthly" | "yearly";
+const plans = {
+  starter: { monthly: 19, yearly: 190, features: ["1 project","Email support","Insights basic"] },
+  pro: { monthly: 49, yearly: 490, features: ["Unlimited projects","Priority support","Insights + runbooks"] },
+};
+
+function Card({
+  title, price, per, features, href,
+}: { title:string; price:number; per:string; features:string[]; href:string }) {
+  return (
+    <div className="rounded-2xl border p-6 shadow grid gap-4">
+      <h3 className="text-xl font-semibold">{title}</h3>
+      <div className="text-3xl">£{price}<span className="text-base">/{per}</span></div>
+      <ul className="text-sm space-y-2">
+        {features.map((f, i) => <li key={i}>• {f}</li>)}
+      </ul>
+      <a className="inline-block rounded-xl border px-4 py-2 hover:opacity-90" href={href}>Buy now</a>
+    </div>
+  );
+}
+
+export default function PricingPage() {
+  const [term, setTerm] = useState<Term>("monthly");
+  const yearlyNote = "2 months free when billed yearly";
+
+  return (
+    <main className="mx-auto max-w-5xl p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Pricing</h1>
+        <div className="flex items-center gap-2 text-sm">
+          <button
+            className={"px-3 py-1 rounded-xl border " + (term==="monthly"?"bg-black text-white":"")}
+            onClick={() => setTerm("monthly")}
+          >Monthly</button>
+          <button
+            className={"px-3 py-1 rounded-xl border " + (term==="yearly"?"bg-black text-white":"")}
+            onClick={() => setTerm("yearly")}
+          >Yearly</button>
+        </div>
+      </div>
+
+      {term==="yearly" && <p className="mb-4 text-sm text-green-700">{yearlyNote}</p>}
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card
+          title="Starter"
+          price={term==="yearly" ? plans.starter.yearly : plans.starter.monthly}
+          per={term==="yearly" ? "yr" : "mo"}
+          features={plans.starter.features}
+          href={`/api/checkout?plan=starter&term=${term}`}
+        />
+        <Card
+          title="Pro"
+          price={term==="yearly" ? plans.pro.yearly : plans.pro.monthly}
+          per={term==="yearly" ? "yr" : "mo"}
+          features={plans.pro.features}
+          href={`/api/checkout?plan=pro&term=${term}`}
+        />
+      </div>
+
+      <p className="mt-6 text-xs opacity-70">Have a promo code? Enter it on the Stripe checkout page.</p>
+    </main>
+  );
+}
+EOF
+
+echo "== 5) Commit and push =="
+git add levqor-site/.env.example levqor-site/src/app/api/checkout/route.ts levqor-site/src/app/pricing/page.tsx
+git commit -m "Pricing v2: monthly+yearly plans, promo codes, Checkout API" || true
+git push origin main
+
+echo "== 6) Deploy (Vercel) =="
+if command -v vercel >/dev/null 2>&1; then
+  vercel --prod --force --token "$VERCEL_TOKEN" || echo "⚠️ Vercel rate limit or auth; deploy will still pick up via Git."
+else
+  echo "⚠️ Vercel CLI missing. Install with: npm i -g vercel"
+fi
+
+echo "== 7) Verify pages =="
+for url in "https://levqor.ai" "https://levqor.ai/pricing" "https://levqor.ai/admin/insights"; do
+  echo "--- $url ---"
+  curl -I "$url" | grep -E "HTTP|x-matched-path"
+done
+
+echo "== 8) Quick UX smoke =="
+# Fetch pricing HTML to ensure both buttons exist
+curl -s https://levqor.ai/pricing | grep -E "Buy now" -n | wc -l
+
+echo "✅ Pricing v2 shipped. Visit https://levqor.ai/pricing"
+echo "Reminder: set these env vars in Vercel Project Settings:"
+echo "  SITE_URL, STRIPE_SECRET_KEY, STRIPE_PRICE_STARTER, STRIPE_PRICE_PRO, STRIPE_PRICE_STARTER_YEAR, STRIPE_PRICE_PRO_YEAR"
