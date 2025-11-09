@@ -1,0 +1,103 @@
+# === FIX & DEPLOY PRICING PAGE ===
+# Goal: Add Starter (£19) and Pro (£49) plans, connect both to Stripe Checkout,
+# verify health and redeploy to Vercel.
+
+set -e
+
+echo "=== STEP 1. Verify repo and secrets ==="
+git fetch --all && git status
+curl -s https://api.levqor.ai/billing/health | jq
+
+# Check Stripe keys configured before proceeding
+if ! curl -s https://api.levqor.ai/billing/health | grep -q '"healthy":true'; then
+  echo "❌ Stripe keys not configured in backend. Aborting."; exit 1;
+fi
+
+echo "✅ Stripe keys ready, continuing..."
+
+# === STEP 2. Create or update API route for Stripe checkout ===
+mkdir -p levqor-site/src/app/api/checkout
+cat > levqor-site/src/app/api/checkout/route.ts <<'EOF'
+import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const plan = searchParams.get('plan');
+    const priceId = plan === 'pro'
+      ? process.env.STRIPE_PRICE_PRO
+      : process.env.STRIPE_PRICE_STARTER;
+
+    if (!priceId) return NextResponse.json({ error: 'Unknown plan' }, { status: 400 });
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${process.env.SITE_URL}/thanks?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.SITE_URL}/pricing`,
+      allow_promotion_codes: true,
+      billing_address_collection: 'auto',
+      automatic_tax: { enabled: true },
+    });
+
+    return NextResponse.redirect(session.url!, 303);
+  } catch (e:any) {
+    return NextResponse.json({ error: e.message ?? 'checkout_error' }, { status: 500 });
+  }
+}
+EOF
+
+# === STEP 3. Update pricing page ===
+mkdir -p levqor-site/src/app/pricing
+cat > levqor-site/src/app/pricing/page.tsx <<'EOF'
+export default function PricingPage() {
+  const card = (title:string, price:string, features:string[], planKey:'starter'|'pro') => (
+    <div className="max-w-sm rounded-2xl shadow p-6 border">
+      <h3 className="text-xl font-semibold">{title}</h3>
+      <p className="text-3xl my-3">£{price}<span className="text-base">/mo</span></p>
+      <ul className="text-sm space-y-2 mb-4">
+        {features.map((f,i)=><li key={i}>• {f}</li>)}
+      </ul>
+      <a
+        className="inline-block px-4 py-2 rounded-xl border font-medium hover:opacity-90"
+        href={`/api/checkout?plan=${planKey}`}
+      >
+        Buy now
+      </a>
+    </div>
+  );
+
+  return (
+    <main className="mx-auto max-w-5xl p-6 grid gap-6 md:grid-cols-2">
+      {card('Starter', '19', ['1 project','Email support','Insights basic'], 'starter')}
+      {card('Pro', '49', ['Unlimited projects','Priority support','Insights + runbooks'], 'pro')}
+    </main>
+  );
+}
+EOF
+
+echo "✅ Files updated."
+
+# === STEP 4. Commit and push ===
+git add levqor-site/src/app/api/checkout/route.ts levqor-site/src/app/pricing/page.tsx
+git commit -m "Add Starter+Pro pricing plans and Stripe Checkout API route" || true
+git push origin main
+
+# === STEP 5. Redeploy via Vercel ===
+if command -v vercel >/dev/null 2>&1; then
+  vercel --prod --force --token "$VERCEL_TOKEN" || echo "⚠️ Vercel rate limit or auth issue"
+else
+  echo "⚠️ Vercel CLI missing. Install with: npm i -g vercel"
+fi
+
+# === STEP 6. Verify deployment ===
+echo "=== Verifying pages ==="
+for url in "https://levqor.ai" "https://levqor.ai/pricing" "https://levqor.ai/admin/insights"; do
+  echo "--- $url ---"
+  curl -I "$url" | grep -E "HTTP|x-matched-path"
+done
+
+echo "✅ Deployment done. Check live at https://levqor.ai/pricing"
