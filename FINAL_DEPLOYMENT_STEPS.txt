@@ -1,0 +1,90 @@
+═══════════════════════════════════════════════════════
+✅ SETUP COMPLETE - JUST PUSH TO DEPLOY
+═══════════════════════════════════════════════════════
+
+WHAT I COMPLETED:
+─────────────────────────────────────────────────────
+
+1. ✅ Stripe Webhook Created
+   - Endpoint ID: we_1SRYDoBNwdcDOF990hV4S1Eh
+   - URL: https://levqor.ai/api/stripe/webhook
+   - Events: checkout.session.completed, subscription.created/updated/deleted
+   - API Version: 2025-10-29.clover
+
+2. ✅ Added STRIPE_WEBHOOK_SECRET to Vercel
+   - Production: ✓
+   - Preview: ✓
+   - Development: ✓
+
+3. ✅ Created Webhook Handler Route
+   - File: levqor-site/src/app/api/stripe/webhook/route.ts
+   - Verifies webhook signatures
+   - Handles checkout completion
+   - Logs subscription events
+   - Edge runtime for performance
+
+4. ✅ All Environment Variables Configured (7 total):
+   - STRIPE_SECRET_KEY
+   - STRIPE_WEBHOOK_SECRET
+   - STRIPE_PRICE_STARTER
+   - STRIPE_PRICE_STARTER_YEAR
+   - STRIPE_PRICE_PRO
+   - STRIPE_PRICE_PRO_YEAR
+   - SITE_URL
+
+═══════════════════════════════════════════════════════
+🚀 DEPLOY NOW (Copy & Paste to Shell):
+═══════════════════════════════════════════════════════
+
+git add levqor-site/src/app/api/stripe/webhook/
+
+git commit -m "Add Stripe webhook handler for subscription tracking"
+
+git push origin main
+
+───────────────────────────────────────────────────────
+⏱️  Wait 2-3 minutes for Vercel to auto-deploy
+───────────────────────────────────────────────────────
+
+🧪 THEN TEST ALL ENDPOINTS:
+
+curl -I https://levqor.ai | grep "HTTP"
+curl -I https://levqor.ai/pricing | grep "HTTP"
+curl -I "https://levqor.ai/api/checkout?plan=starter&term=monthly" | grep "HTTP"
+curl -I https://levqor.ai/api/stripe/webhook | grep "HTTP"
+
+Expected:
+✓ Homepage: HTTP/2 200
+✓ Pricing: HTTP/2 200
+✓ Checkout: HTTP/2 303 (redirects to Stripe)
+✓ Webhook: HTTP/2 200
+
+═══════════════════════════════════════════════════════
+🎯 COMPLETE STRIPE INTEGRATION:
+═══════════════════════════════════════════════════════
+
+✅ Pricing page with monthly/yearly toggle
+✅ 4 Stripe products/prices created
+✅ Checkout API with automatic tax
+✅ Thank you page after purchase
+✅ Webhook endpoint for subscription tracking
+✅ All 7 environment variables configured
+
+═══════════════════════════════════════════════════════
+🧪 END-TO-END TEST:
+═══════════════════════════════════════════════════════
+
+1. Visit: https://levqor.ai/pricing
+2. Toggle monthly/yearly (see price changes)
+3. Click "Buy now" on Starter plan
+4. Complete Stripe Checkout:
+   - Test card: 4242 4242 4242 4242
+   - Any future expiry (e.g., 12/34)
+   - Any CVC (e.g., 123)
+   - Any ZIP (e.g., 12345)
+5. After payment, redirects to /thanks page
+6. Check Vercel logs for webhook event
+
+═══════════════════════════════════════════════════════
+✅ YOU'RE DONE!
+═══════════════════════════════════════════════════════
