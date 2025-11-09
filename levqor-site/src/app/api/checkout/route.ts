@@ -1,36 +1,32 @@
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-10-29.clover' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-10-28" });
 
-export async function GET(req: Request) {
+export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const plan = (searchParams.get('plan') || 'starter').toLowerCase();
-    const term = (searchParams.get('term') || 'monthly').toLowerCase();
+    const { plan, term } = await req.json();
 
-    const priceId =
-      plan === 'pro'
-        ? term === 'yearly' ? process.env.STRIPE_PRICE_PRO_YEAR : process.env.STRIPE_PRICE_PRO
-        : term === 'yearly' ? process.env.STRIPE_PRICE_STARTER_YEAR : process.env.STRIPE_PRICE_STARTER;
+    // Map only what actually exists in Vercel
+    const priceMap: Record<string, string | undefined> = {
+      "starter-monthly": process.env.STRIPE_PRICE_ID_STARTER,
+      "pro-monthly": process.env.STRIPE_PRICE_ID_PRO,
+    };
 
+    const priceId = priceMap[`${plan}-${term}`];
     if (!priceId) {
-      return NextResponse.json({ error: 'Unknown plan/term' }, { status: 400 });
+      return NextResponse.json({ error: "Unknown plan/term" }, { status: 400 });
     }
 
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
+      mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.SITE_URL || 'https://levqor.ai'}/thanks?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.SITE_URL || 'https://levqor.ai'}/pricing`,
-      allow_promotion_codes: true,
-      billing_address_collection: 'auto',
-      automatic_tax: { enabled: true },
+      success_url: `${process.env.SITE_URL}/success`,
+      cancel_url: `${process.env.SITE_URL}/pricing`,
     });
 
-    return NextResponse.redirect(session.url!, 303);
+    return NextResponse.json({ url: session.url });
   } catch (e: any) {
-    console.error('Stripe checkout error:', e);
-    return NextResponse.json({ error: e.message ?? 'checkout_error' }, { status: 500 });
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
