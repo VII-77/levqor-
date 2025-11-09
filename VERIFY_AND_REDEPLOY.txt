@@ -1,0 +1,72 @@
+═══════════════════════════════════════════════════════
+🚨 DEPLOYMENT STATUS
+═══════════════════════════════════════════════════════
+
+PROBLEM:
+───────
+✅ Local code is correct (has POST/GET handlers)
+❌ Production still returns "Unknown plan/term" error
+❌ Git push may not have completed
+
+═══════════════════════════════════════════════════════
+✅ SOLUTION 1: Verify & Re-push
+═══════════════════════════════════════════════════════
+
+Run in Shell:
+
+cd ~/workspace/levqor-site
+git status
+git log origin/main..HEAD --oneline
+
+If you see uncommitted changes or unpushed commits, run:
+
+git add src/app/api/checkout/route.ts
+git commit -m "Stripe checkout: dual env scheme + POST JSON handler"
+git push origin main
+
+═══════════════════════════════════════════════════════
+✅ SOLUTION 2: Manual Vercel Deploy (Fastest)
+═══════════════════════════════════════════════════════
+
+Since auto-deploy seems unreliable:
+
+1. Go to: https://vercel.com/vii-77s-projects/levqor-site
+
+2. Click "Deployments" tab
+
+3. Click blue "Deploy" button (top right)
+
+4. Wait 2 minutes
+
+5. Test:
+   curl -X POST https://levqor.ai/api/checkout \
+     -H "content-type: application/json" \
+     --data '{"plan":"starter","term":"monthly"}'
+
+   Expected: {"url":"https://checkout.stripe.com/..."}
+
+═══════════════════════════════════════════════════════
+📊 WHAT'S READY TO DEPLOY:
+═══════════════════════════════════════════════════════
+
+✅ Dual environment variable support (4-var + 2-var schemes)
+✅ POST /api/checkout with JSON body
+✅ GET /api/checkout with query params
+✅ Static env variable references
+✅ Environment logging for debugging
+✅ Webhook handler intact
+
+File: levqor-site/src/app/api/checkout/route.ts
+
+═══════════════════════════════════════════════════════
+🧪 TEST AFTER DEPLOYMENT:
+═══════════════════════════════════════════════════════
+
+curl -X POST https://levqor.ai/api/checkout \
+  -H "content-type: application/json" \
+  --data '{"plan":"starter","term":"monthly"}'
+
+Expected: {"url":"https://checkout.stripe.com/c/pay/cs_..."}
+Current: (empty response or 405 error)
+
+═══════════════════════════════════════════════════════
