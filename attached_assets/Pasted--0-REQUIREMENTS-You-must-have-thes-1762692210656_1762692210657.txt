@@ -1,0 +1,118 @@
+# --- 0) REQUIREMENTS ---------------------------------------------------------
+# You must have these already set in Vercel (Production):
+#   STRIPE_SECRET_KEY  STRIPE_PUBLISHABLE_KEY
+# And the vercel token in your shell:
+#   export VERCEL_TOKEN=...   # set once per session
+
+set -euo pipefail
+
+echo "== 1) Create webhook endpoint in Stripe (production) =="
+# Creates (or reuses) a webhook endpoint that listens to checkout + customer events
+# NOTE: Uses LIVE secret key; if you want test mode change the key to test.
+WEBHOOK_CREATE_JSON=$(curl -sS https://api.stripe.com/v1/webhook_endpoints \
+  -u "$STRIPE_SECRET_KEY": \
+  -d "enabled_events[]"=>"checkout.session.completed" \
+  -d "enabled_events[]"=>"customer.subscription.created" \
+  -d "enabled_events[]"=>"customer.subscription.updated" \
+  -d "enabled_events[]"=>"customer.subscription.deleted" \
+  -d "url"=>"https://levqor.ai/api/stripe/webhook" \
+  -d "description"=>"Levqor production webhook" \
+  -d "api_version"=>"2025-10-29.clover" || true)
+
+# If endpoint already exists for that URL, Stripe returns the existing one without a new secret.
+# Try to read `secret`; if missing, fetch the signing secret separately via rotate endpoint.
+WEBHOOK_SECRET=$(printf '%s' "$WEBHOOK_CREATE_JSON" | grep -o '"secret":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
+
+if [ -z "${WEBHOOK_SECRET:-}" ]; then
+  echo "No secret returned (endpoint likely existed). Rotating to get a fresh secret..."
+  EP_ID=$(printf '%s' "$WEBHOOK_CREATE_JSON" | grep -o '"id":"we_[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
+  if [ -z "${EP_ID:-}" ]; then
+    # fetch by URL and pick first
+    EP_ID=$(curl -sS https://api.stripe.com/v1/webhook_endpoints -u "$STRIPE_SECRET_KEY": \
+      | tr -d '\n' | sed 's/},{/}\n{/g' | grep '"https://levqor.ai/api/stripe/webhook"' | head -1 \
+      | grep -o '"id":"we_[^"]*"' | cut -d':' -f2 | tr -d '"')
+  fi
+  WEBHOOK_ROTATE_JSON=$(curl -sS -X POST "https://api.stripe.com/v1/webhook_endpoints/${EP_ID}/secret" -u "$STRIPE_SECRET_KEY":)
+  WEBHOOK_SECRET=$(printf '%s' "$WEBHOOK_ROTATE_JSON" | grep -o '"secret":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
+fi
+
+if [ -z "${WEBHOOK_SECRET:-}" ]; then
+  echo "Could not obtain webhook signing secret from Stripe. Stop and set STRIPE_WEBHOOK_SECRET manually."
+  exit 1
+fi
+echo "Webhook secret acquired."
+
+echo "== 2) Save STRIPE_WEBHOOK_SECRET to Vercel (production) =="
+vercel env add STRIPE_WEBHOOK_SECRET production --token "$VERCEL_TOKEN" <<<"$WEBHOOK_SECRET"
+
+echo "== 3) Add webhook route (idempotent) =="
+mkdir -p levqor-site/src/app/api/stripe/webhook
+cat > levqor-site/src/app/api/stripe/webhook/route.ts <<'TS'
+import { NextRequest, NextResponse } from 'next/server';
+import Stripe from 'stripe';
+
+export const runtime = 'edge'; // fast and cheap
+export const dynamic = 'force-dynamic';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: '2025-10-29.clover',
+});
+
+export async function POST(req: NextRequest) {
+  try {
+    const rawBody = await req.text();
+    const sig = req.headers.get('stripe-signature') || '';
+    const secret = process.env.STRIPE_WEBHOOK_SECRET!;
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, sig, secret);
+    } catch (err: any) {
+      return new NextResponse(JSON.stringify({ error: 'Invalid signature', detail: err?.message }), { status: 400 });
+    }
+
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        // TODO: mark user active, persist subscription, capture email + price_id
+        break;
+      }
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        // TODO: sync subscription status to your DB
+        break;
+      }
+      default:
+        // ignore others
+        break;
+    }
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return new NextResponse(JSON.stringify({ error: 'handler_failed', detail: e?.message }), { status: 500 });
+  }
+}
+
+export async function GET() {
+  return NextResponse.json({ ok: true, route: '/api/stripe/webhook' });
+}
+TS
+
+echo "== 4) Commit and push =="
+git add levqor-site/src/app/api/stripe/webhook/route.ts
+git commit -m "Add Stripe production webhook route and connect signing secret"
+git push origin main
+
+echo "== 5) Trigger Vercel production deploy =="
+# If your Git push doesn’t auto-deploy, uncomment the next line:
+# vercel --prod --force --token "$VERCEL_TOKEN"
+
+echo "Waiting 120s for deploy..."
+sleep 120
+
+echo "== 6) Verify endpoints =="
+curl -sI https://levqor.ai | grep HTTP || true
+curl -sI https://levqor.ai/pricing | grep HTTP || true
+curl -sI "https://levqor.ai/api/checkout?plan=starter&term=monthly" | grep -E 'HTTP/2 303|HTTP/1.1 303' || true
+curl -sI https://levqor.ai/api/stripe/webhook | grep HTTP || true
+
+echo "== DONE =="
