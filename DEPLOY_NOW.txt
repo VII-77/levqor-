@@ -1,0 +1,49 @@
+╔═══════════════════════════════════════════════════╗
+║  🚀 DEPLOY PRICING V2.1 - COPY & PASTE THESE     ║
+╚═══════════════════════════════════════════════════╝
+
+Run these 3 commands in the Shell:
+
+git add levqor-site/
+
+git commit -m "Pricing v2.1: monthly+yearly plans with Stripe integration"
+
+git push origin main
+
+───────────────────────────────────────────────────
+
+⏱️  WAIT: 2-3 minutes for Vercel to build
+
+───────────────────────────────────────────────────
+
+🧪 THEN TEST:
+
+curl -I "https://levqor.ai/api/checkout?plan=starter&term=monthly"
+
+Expected: HTTP/2 303 (redirects to Stripe Checkout)
+
+───────────────────────────────────────────────────
+
+✅ WHAT'S DEPLOYED:
+
+- Pricing page with monthly/yearly toggle
+- 4 Stripe prices (starter/pro × monthly/yearly)
+- Checkout API with automatic tax
+- Thank you page after purchase
+- All 6 environment variables configured
+
+───────────────────────────────────────────────────
+
+🎯 TEST LIVE SITE:
+
+https://levqor.ai/pricing
+
+Try:
+1. Toggle monthly/yearly
+2. Click "Buy now" on Starter
+3. Should redirect to Stripe Checkout
+4. Test card: 4242 4242 4242 4242
+5. Complete purchase
+6. Redirects to /thanks page
+
+╚═══════════════════════════════════════════════════╝
