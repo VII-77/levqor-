@@ -1,0 +1,159 @@
+Here’s a single agent-ready prompt you can paste into Replit’s AI Agent. It will verify, auto-fix, and redeploy your site, then prove Stripe checkout works.
+
+
+---
+
+🛠️ Replit Agent Prompt — “Verify & Fix Levqor Deploy + Stripe Checkout”
+
+You are operating in this repo. Do everything non-interactively and report results clearly.
+
+GOAL
+
+1. Make sure the live deployment on Vercel is healthy.
+
+
+2. Make /api/checkout work for starter|pro + monthly|yearly.
+
+
+3. Redeploy if needed.
+
+
+4. Show proof with live HTTP checks.
+
+
+
+CONSTRAINTS
+
+Use git push to trigger Vercel deploys. Only use vercel CLI if the token already works.
+
+Never create secrets in code. Use existing Vercel env vars only.
+
+Keep changes minimal and reversible.
+
+
+STEPS
+
+1. Repo sanity
+
+git fetch origin and ensure branch main is current.
+
+Show git status -sb. If dirty with only build/temp files, clean them. Do not delete real code.
+
+
+
+2. Quick health checks (current production)
+
+curl -I https://levqor.ai | grep HTTP
+
+curl -I https://levqor.ai/pricing | grep HTTP
+
+curl -s -X POST https://levqor.ai/api/checkout -H "content-type: application/json" --data '{"plan":"starter","term":"monthly"}'
+
+Record results.
+
+
+
+3. If checkout returns 4xx/5xx or { "error": "Unknown plan/term" }, fix it
+
+Detect which env names exist in Production:
+
+Prefer vercel env ls --token "$VERCEL_TOKEN" if token works; else rely on code inspection and .env.local if present.
+
+
+Two supported naming schemes:
+
+A) Four-variable scheme:
+STRIPE_PRICE_STARTER, STRIPE_PRICE_STARTER_YEAR, STRIPE_PRICE_PRO, STRIPE_PRICE_PRO_YEAR
+
+B) Two-variable scheme (with ID):
+STRIPE_PRICE_ID_STARTER, STRIPE_PRICE_ID_PRO
+
+
+Open levqor-site/src/app/api/checkout/route.ts. Implement POST handler that:
+
+Reads JSON { plan, term }.
+
+Builds priceId using static env references only. Support both schemes:
+
+If four-var present, map:
+
+starter+monthly → process.env.STRIPE_PRICE_STARTER
+
+starter+yearly → process.env.STRIPE_PRICE_STARTER_YEAR
+
+pro+monthly → process.env.STRIPE_PRICE_PRO
+
+pro+yearly → process.env.STRIPE_PRICE_PRO_YEAR
+
+
+Else if two-var present, map:
+
+starter → process.env.STRIPE_PRICE_ID_STARTER
+
+pro → process.env.STRIPE_PRICE_ID_PRO
+
+Ignore term (monthly/yearly) in this scheme.
+
+
+
+If no valid match, return 400 { "error":"Unknown plan/term" }.
+
+Create Stripe session with mode:"subscription", line_items:[{ price: priceId, quantity:1 }], and use process.env.SITE_URL for success_url and cancel_url.
+Use Stripe apiVersion "2024-10-28".
+
+
+Ensure the file exports POST (and optionally a simple GET that returns 405).
+
+
+
+4. Commit & deploy
+
+git add levqor-site/src/app/api/checkout/route.ts
+
+git commit -m "Fix Stripe checkout mapping; support both env schemes; POST only"
+
+git push origin main
+
+Wait 2–3 minutes for Vercel to deploy. If auto-deploy doesn’t trigger, create a harmless marker file levqor-site/.redeploy with the current date, commit, and push again.
+
+
+
+5. Verify live after deploy
+
+curl -I https://levqor.ai | grep HTTP  → expect HTTP/2 200
+
+curl -I https://levqor.ai/pricing | grep HTTP  → expect HTTP/2 200
+
+curl -s -X POST https://levqor.ai/api/checkout -H "content-type: application/json" --data '{"plan":"starter","term":"monthly"}'
+→ expect JSON with "url":"https://checkout.stripe.com/..."
+
+Repeat POST for {"plan":"pro","term":"yearly"}.
+
+
+
+6. Output
+
+Print:
+
+Current live deployment URL/ID from build logs or vercel deployments if available.
+
+The three check results.
+
+Which env scheme was detected (A or B).
+
+A short “What changed” list. If no code change needed, say “no change”.
+
+
+
+
+
+Acceptance criteria
+
+Live site returns 200 on / and /pricing.
+
+/api/checkout POST returns a JSON object containing a Stripe Checkout url for at least one plan.
+
+A clear summary is printed.
+
+
+If anything blocks progress, print the exact blocking command and the minimal action I must take.
