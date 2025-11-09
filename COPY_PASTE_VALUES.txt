@@ -1,0 +1,67 @@
+═══════════════════════════════════════════════════════════
+COPY/PASTE REFERENCE - Keep this file open while setting up
+═══════════════════════════════════════════════════════════
+
+STRIPE PRODUCT NAMES (Copy these exactly):
+──────────────────────────────────────────
+Product 1 Name:
+Levqor Starter
+
+Product 1 Description:
+1 project, email support, basic insights
+
+Product 2 Name:
+Levqor Pro
+
+Product 2 Description:
+Unlimited projects, priority support, advanced insights
+
+
+REPLIT SECRET KEYS (Type these exactly):
+──────────────────────────────────────────
+STRIPE_PRICE_STARTER
+STRIPE_PRICE_STARTER_YEAR
+STRIPE_PRICE_PRO
+STRIPE_PRICE_PRO_YEAR
+SITE_URL
+
+
+VERCEL ENVIRONMENT VARIABLE KEYS (Type these exactly):
+──────────────────────────────────────────
+STRIPE_SECRET_KEY
+STRIPE_PRICE_STARTER
+STRIPE_PRICE_STARTER_YEAR
+STRIPE_PRICE_PRO
+STRIPE_PRICE_PRO_YEAR
+SITE_URL
+
+
+VERCEL ENVIRONMENT VARIABLE VALUES:
+──────────────────────────────────────────
+For SITE_URL, always use:
+https://levqor.ai
+
+For STRIPE_SECRET_KEY:
+[Copy from Replit Secrets]
+
+For the 4 price IDs:
+[Copy from Stripe after creating each price]
+
+
+GIT COMMANDS (Paste all at once in Shell):
+──────────────────────────────────────────
+rm -f .git/index.lock
+git add levqor-site/
+git commit -m "Add Stripe pricing with monthly/yearly plans"
+git push origin main
+
+
+TEST CARD DETAILS:
+──────────────────────────────────────────
+Card number: 4242 4242 4242 4242
+Expiry: 12/25
+CVC: 123
+ZIP: 12345
+
+
+═══════════════════════════════════════════════════════════
