@@ -44,3 +44,4 @@ htmlcov/
 backups/
 .env
 .vercel
+.env*.local
