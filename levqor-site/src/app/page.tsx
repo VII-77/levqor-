@@ -1,26 +1,20 @@
-async function getStatus() {
-  try {
-    const r = await fetch("https://api.levqor.ai/status", { next: { revalidate: 30 } });
-    return r.ok ? "Operational" : "Degraded";
-  } catch { return "Unknown"; }
-}
-export default async function Home() {
-  const status = await getStatus();
+import Link from "next/link"
+
+export default function Home() {
   return (
-    <main className="min-h-screen">
-      <section className="px-6 py-20 text-center bg-gradient-to-b from-slate-50 to-white">
-        <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm">
-          <span className={`size-2 rounded-full ${status==="Operational"?"bg-green-500":"bg-yellow-500"}`}></span>
-          <span>Systems: {status}</span>
-        </div>
-        <h1 className="mt-6 text-5xl font-semibold">Self-Driven Automation for Teams</h1>
-        <p className="mt-4 text-slate-600">Integrate. Orchestrate. Observe. Levqor runs your workflows and heals itself.</p>
-        <div className="mt-6 flex gap-3 justify-center">
-          <a className="px-5 py-3 rounded bg-black text-white" href="/signin">Start free</a>
-          <a className="px-5 py-3 rounded border" href="/pricing">See pricing</a>
-        </div>
-        <p className="mt-3 text-xs text-slate-500">GDPR • SSO • Stripe • Sentry</p>
-      </section>
+    <main className="min-h-screen flex flex-col items-center justify-center text-center space-y-6 px-4">
+      <h1 className="text-5xl font-bold">Automate Smarter with Levqor</h1>
+      <p className="max-w-xl text-gray-500">
+        AI-powered automation for modern businesses. Start free, scale fast.
+      </p>
+      <div className="flex space-x-4">
+        <Link href="/pricing" className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition">
+          View Plans
+        </Link>
+        <Link href="/contact" className="px-6 py-3 border border-black rounded-lg hover:bg-gray-50 transition">
+          Contact Us
+        </Link>
+      </div>
     </main>
-  );
+  )
 }
