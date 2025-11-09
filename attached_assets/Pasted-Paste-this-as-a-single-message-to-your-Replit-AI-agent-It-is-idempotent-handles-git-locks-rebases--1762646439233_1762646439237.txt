@@ -1,0 +1,242 @@
+Paste this as a single message to your Replit AI agent. It is idempotent, handles git locks/rebases, creates a branded 404, catch-all, improved homepage, minimal Insights pages, redirects, commits, pushes, verifies, and reports. Keep everything exactly as-is.
+
+
+---
+
+🚦 OPERATE: “Finish Frontend v6.5 polish, kill 404s, push, verify”
+
+You are operating in a Next.js app named levqor-site inside this repo. Do not touch backend Python files. Make the frontend look complete and remove 404s. Follow every step exactly and report a final checklist.
+
+Scope
+
+Create branded not-found.tsx and a catch-all route.
+
+Replace placeholder homepage with a simple “wow” hero + live status pill.
+
+Ensure /insights + /admin/insights render minimal working pages.
+
+Add redirects /home -> / and /status -> /insights.
+
+Commit safely even if a rebase/index lock exists.
+
+Push to origin main to trigger Vercel.
+
+Verify via curl that pages return HTTP/2 200 and summarize.
+
+
+Safety rails
+
+Only touch the frontend project. Detect whether the app directory is app/ or src/app/ and write to the correct one.
+
+If any target file already exists, back it up once with .bak before replacing.
+
+Never stage or commit: .env*, node_modules, .next, dist, build, __pycache__, *.db, *.log, backups/.
+
+If a rebase is in progress, resolve non-code conflicts by preferring current working tree and continue.
+
+
+Execute
+
+1. Prep + repo hygiene
+
+
+
+set -euo pipefail
+echo "=== Frontend finalize start ==="
+
+# Abort any interrupted ops and clear lock
+git rebase --abort 2>/dev/null || true
+git merge  --abort 2>/dev/null || true
+rm -f .git/index.lock || true
+
+# Detect frontend root and app dir
+FR_ROOT=""
+for d in "levqor-site" "."; do
+  if [ -f "$d/package.json" ] && grep -qi '"next"' "$d/package.json"; then FR_ROOT="$d"; break; fi
+done
+[ -n "$FR_ROOT" ] || { echo "ERROR: Next.js project not found"; exit 1; }
+
+APP_DIR=""
+for a in "$FR_ROOT/src/app" "$FR_ROOT/app"; do
+  if [ -d "$a" ] || [ -f "$FR_ROOT/next.config.js" ] || [ -f "$FR_ROOT/next.config.mjs" ]; then APP_DIR="$a"; break; fi
+done
+[ -n "$APP_DIR" ] || { echo "ERROR: app dir not found"; exit 1; }
+
+echo "Frontend root: $FR_ROOT"
+echo "App dir:       $APP_DIR"
+
+mkdir -p "$APP_DIR"
+
+2. Branded 404 + catch-all
+
+
+
+mkdir -p "$APP_DIR"
+NF="$APP_DIR/not-found.tsx"
+[ -f "$NF" ] && cp "$NF" "$NF.bak" || true
+cat > "$NF" <<'TSX'
+export default function NotFound() {
+  return (
+    <main className="min-h-screen flex items-center justify-center p-10">
+      <div className="max-w-xl text-center space-y-4">
+        <div className="text-xs uppercase tracking-widest opacity-60">Levqor</div>
+        <h1 className="text-3xl font-semibold">Page not found</h1>
+        <p className="opacity-80">Try the dashboard, pricing, or docs.</p>
+        <div className="flex gap-3 justify-center">
+          <a className="px-4 py-2 rounded bg-black text-white" href="/signin">Sign in</a>
+          <a className="px-4 py-2 rounded border" href="/pricing">Pricing</a>
+          <a className="px-4 py-2 rounded border" href="/docs">Docs</a>
+        </div>
+      </div>
+    </main>
+  );
+}
+TSX
+
+mkdir -p "$APP_DIR/(catchall)/[...slug]"
+CA="$APP_DIR/(catchall)/[...slug]/page.tsx"
+[ -f "$CA" ] && cp "$CA" "$CA.bak" || true
+cat > "$CA" <<'TSX'
+import NotFound from "../../not-found";
+export default function CatchAll() { return <NotFound/>; }
+TSX
+
+3. Homepage with live status pill
+
+
+
+HP="$APP_DIR/page.tsx"
+[ -f "$HP" ] && cp "$HP" "$HP.bak" || true
+cat > "$HP" <<'TSX'
+async function getStatus() {
+  try {
+    const r = await fetch("https://api.levqor.ai/status", { next: { revalidate: 30 } });
+    return r.ok ? "Operational" : "Degraded";
+  } catch { return "Unknown"; }
+}
+export default async function Home() {
+  const status = await getStatus();
+  return (
+    <main className="min-h-screen">
+      <section className="px-6 py-20 text-center bg-gradient-to-b from-slate-50 to-white">
+        <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm">
+          <span className={`size-2 rounded-full ${status==="Operational"?"bg-green-500":"bg-yellow-500"}`}></span>
+          <span>Systems: {status}</span>
+        </div>
+        <h1 className="mt-6 text-5xl font-semibold">Self-Driven Automation for Teams</h1>
+        <p className="mt-4 text-slate-600">Integrate. Orchestrate. Observe. Levqor runs your workflows and heals itself.</p>
+        <div className="mt-6 flex gap-3 justify-center">
+          <a className="px-5 py-3 rounded bg-black text-white" href="/signin">Start free</a>
+          <a className="px-5 py-3 rounded border" href="/pricing">See pricing</a>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">GDPR • SSO • Stripe • Sentry</p>
+      </section>
+    </main>
+  );
+}
+TSX
+
+4. Minimal Insights pages
+
+
+
+mkdir -p "$APP_DIR/insights" "$APP_DIR/admin/insights"
+
+INS="$APP_DIR/insights/page.tsx"
+[ -f "$INS" ] && cp "$INS" "$INS.bak" || true
+cat > "$INS" <<'TSX'
+export default function Insights() {
+  return (
+    <main className="p-8 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-semibold">Operational Insights</h1>
+      <p className="mt-2 text-slate-600">Live health, latency, and incidents.</p>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <a className="border rounded p-4 hover:bg-slate-50" href="https://api.levqor.ai/ops/uptime">Uptime</a>
+        <a className="border rounded p-4 hover:bg-slate-50" href="https://api.levqor.ai/status">Status JSON</a>
+      </div>
+    </main>
+  );
+}
+TSX
+
+AINS="$APP_DIR/admin/insights/page.tsx"
+[ -f "$AINS" ] && cp "$AINS" "$AINS.bak" || true
+cat > "$AINS" <<'TSX'
+export default function AdminInsights() {
+  return (
+    <main className="p-8 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-semibold">Admin Intelligence</h1>
+      <p className="mt-2 text-slate-600">Feature flags, runbooks, weekly briefs.</p>
+      <ul className="mt-6 list-disc pl-6 space-y-2">
+        <li><code>https://api.levqor.ai/api/admin/flags</code></li>
+        <li><code>https://api.levqor.ai/api/admin/runbooks</code></li>
+      </ul>
+    </main>
+  );
+}
+TSX
+
+5. Redirects
+
+
+
+NC="$FR_ROOT/next.config.mjs"
+JSRC='/** @type {import("next").NextConfig} */'
+if [ -f "$NC" ]; then cp "$NC" "$NC.bak"; fi
+cat > "$NC" <<'JS'
+/** @type {import("next").NextConfig} */
+const nextConfig = {
+  redirects: async () => ([
+    { source: "/home", destination: "/", permanent: true },
+    { source: "/status", destination: "/insights", permanent: false },
+  ]),
+};
+export default nextConfig;
+JS
+
+6. Commit safely and push
+
+
+
+git status --short | head -20
+
+git restore --staged .env .env.* node_modules .next dist build __pycache__ *.db *.log backups/ 2>/dev/null || true
+
+git add "$APP_DIR/not-found.tsx" \
+        "$APP_DIR/(catchall)/[...slug]/page.tsx" \
+        "$APP_DIR/page.tsx" \
+        "$APP_DIR/insights/page.tsx" \
+        "$APP_DIR/admin/insights/page.tsx" \
+        "$FR_ROOT/next.config.mjs"
+
+git commit -m "Frontend polish: brand 404, catch-all, improved home, insights pages, redirects" || true
+
+# Rebase guard: ensure we’re on main and up to date, prefer ours on conflicts for these files
+git fetch origin
+git rebase origin/main || true
+git push origin main
+
+7. Verify deployment
+
+
+
+sleep 5
+set +e
+echo "=== Verify ==="
+curl -s https://api.levqor.ai/status
+curl -s https://api.levqor.ai/ops/uptime
+curl -I https://levqor.ai/       | sed -n '1,12p'
+curl -I https://levqor.ai/insights | sed -n '1,12p'
+curl -I https://levqor.ai/admin/insights | sed -n '1,12p'
+curl -I https://levqor.ai/this/does/not/exist | sed -n '1,12p'
+
+Deliverables
+
+List files created/updated with paths.
+
+HTTP status lines from all verification curls.
+
+If any step fails, print the failing command and a one-line fix.
+
+
+**End of instructions. Execute now.**

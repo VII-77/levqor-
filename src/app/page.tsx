@@ -1,6 +1,6 @@
 async function getStatus() {
   try {
-    const r = await fetch("https://api.levqor.ai/status", { next: { revalidate: 30 } });
+    const r = await fetch("https://api.levqor.ai/status", { next: { revalidate: 30 }});
     return r.ok ? "Operational" : "Degraded";
   } catch { return "Unknown"; }
 }
