@@ -1,0 +1,463 @@
+Here is your single, copy-paste Replit AI Agent master prompt.
+It is self-contained, defensive, and minimizes clicks. Paste it into the Agent and run.
+
+
+---
+
+TITLE: Levqor Final Ship — Pricing, Stripe, Vercel, Verify, Rollback
+
+OBJECTIVE: Bring levqor.ai to production with competitive pricing, working Stripe checkout, clean Vercel state, and automated verification. Prevent repeats of prior issues: wrong env names, failed deploys due to limits, missing routes, and 404s.
+
+DO FIRST — EXECUTION RULES
+
+Work idempotently. If something already exists and matches spec, skip.
+
+Never delete production data blindly. Use DRY_RUN=true by default.
+
+Log every action to FINAL_SHIP_LOG.txt.
+
+If any step fails, stop and print a clear fix.
+
+
+
+---
+
+0) Inputs and constants
+
+PROJECT_DIR: ~/workspace/levqor-site (Next.js frontend)
+
+API_BASE: https://api.levqor.ai
+
+APP_BASE: https://levqor.ai
+
+STRIPE_LIVE: use env STRIPE_SECRET_KEY already configured in Vercel
+
+Vercel project: connected to repo’s main branch
+
+Trial: FREE_TRIAL_DAYS=7
+
+DRY_RUN default: true (flip to false only after preflight passes)
+
+
+Plans and prices to enforce (GBP):
+
+Free: £0 (no Stripe price; show UI only)
+
+Starter: £19/mo, £190/yr
+
+Pro: £49/mo, £490/yr
+
+Business: £149/mo, £1490/yr
+
+
+Add-ons (optional, create if missing, SKU-style):
+
+PRIORITY_SUPPORT: £99/mo
+
+SLA_99_9: £199/mo
+
+WHITE_LABEL: £299/mo
+
+
+Required Vercel production envs (frontend):
+
+NEXT_PUBLIC_API_URL = https://api.levqor.ai
+NEXTAUTH_URL = https://levqor.ai
+NEXTAUTH_SECRET = <exists>
+RESEND_API_KEY = <exists>
+STRIPE_SECRET_KEY = <exists>
+STRIPE_WEBHOOK_SECRET = <exists>
+
+# Prices (canonical 4+2 scheme)
+STRIPE_PRICE_STARTER
+STRIPE_PRICE_STARTER_YEAR
+STRIPE_PRICE_PRO
+STRIPE_PRICE_PRO_YEAR
+STRIPE_PRICE_BUSINESS
+STRIPE_PRICE_BUSINESS_YEAR
+
+# Add-ons (optional)
+STRIPE_PRICE_ADDON_PRIORITY_SUPPORT
+STRIPE_PRICE_ADDON_SLA_99_9
+STRIPE_PRICE_ADDON_WHITE_LABEL
+
+SITE_URL = https://levqor.ai
+FREE_TRIAL_DAYS = 7
+
+
+---
+
+1) Preflight checks
+
+1. Open a shell in the Replit workspace root.
+
+
+2. Run:
+
+
+
+set -euo pipefail
+echo "== Preflight ==" | tee -a FINAL_SHIP_LOG.txt
+cd ~/workspace/levqor-site || { echo "Missing project"; exit 1; }
+
+# Verify git is clean enough to proceed
+rm -f ../.git/index.lock 2>/dev/null || true
+git status --porcelain | tee -a ../FINAL_SHIP_LOG.txt
+
+# Verify required tools are available
+node -v && npm -v | tee -a ../FINAL_SHIP_LOG.txt || true
+
+If Node is not present in this session, the Agent must install/use the project’s Node via Nix or Replit runtime.
+
+
+---
+
+2) Stripe: ensure products and prices exist
+
+Goal: create or reuse Stripe Products/Prices for Starter/Pro/Business monthly/yearly, plus optional add-ons. Do not delete any live Prices. Only create missing ones. Then write the price IDs to Vercel envs.
+
+2.1 Build a helper script (safe, idempotent)
+
+Create scripts/stripe_sync.mjs with:
+
+import Stripe from "stripe";
+
+const DRY_RUN = process.env.DRY_RUN === "false" ? false : true;
+const stripeKey = process.env.STRIPE_SECRET_KEY || process.env.VERCEL_STRIPE_SECRET_KEY || "";
+if (!stripeKey) { console.error("Missing STRIPE_SECRET_KEY"); process.exit(1); }
+
+const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });
+
+const currency = "gbp";
+const plans = [
+  { key:"STARTER",  name:"Levqor Starter",  monthly:1900,  yearly:19000 },
+  { key:"PRO",      name:"Levqor Pro",      monthly:4900,  yearly:49000 },
+  { key:"BUSINESS", name:"Levqor Business", monthly:14900, yearly:149000 },
+];
+
+const addons = [
+  { key:"ADDON_PRIORITY_SUPPORT", name:"Priority Support", amount:9900 },
+  { key:"ADDON_SLA_99_9",         name:"SLA 99.9%",       amount:19900 },
+  { key:"ADDON_WHITE_LABEL",      name:"White-label",     amount:29900 },
+];
+
+function envName(base) { return `STRIPE_PRICE_${base}`; }
+function envYear(base) { return `STRIPE_PRICE_${base}_YEAR`; }
+
+async function ensureProduct(name) {
+  const list = await stripe.products.list({ limit: 100, active: true });
+  let found = list.data.find(p => p.name === name);
+  if (!found && !DRY_RUN) {
+    found = await stripe.products.create({ name, active: true });
+  }
+  return found;
+}
+
+async function ensurePrice(productId, unit_amount, interval) {
+  const prices = await stripe.prices.list({ product: productId, active: true, limit: 100 });
+  let p = prices.data.find(x => x.unit_amount === unit_amount && x.currency === currency && x.recurring?.interval === interval);
+  if (!p && !DRY_RUN) {
+    p = await stripe.prices.create({
+      currency, unit_amount, product: productId,
+      recurring: { interval }
+    });
+  }
+  return p;
+}
+
+(async () => {
+  const results = {};
+
+  // Plans
+  for (const plan of plans) {
+    const prod = await ensureProduct(plan.name);
+    results[plan.key] = { product: prod?.id || null };
+
+    const pm = prod ? await ensurePrice(prod.id, plan.monthly, "month") : null;
+    const py = prod ? await ensurePrice(prod.id, plan.yearly, "year")  : null;
+
+    results[plan.key].monthly = pm?.id || null;
+    results[plan.key].yearly  = py?.id || null;
+  }
+
+  // Addons (monthly only)
+  for (const ad of addons) {
+    const prod = await ensureProduct(ad.name);
+    const price = prod ? await ensurePrice(prod.id, ad.amount, "month") : null;
+    results[ad.key] = { product: prod?.id || null, monthly: price?.id || null };
+  }
+
+  console.log(JSON.stringify({ DRY_RUN, results }, null, 2));
+})();
+
+Run a dry-run:
+
+cd ~/workspace/levqor-site
+node scripts/stripe_sync.mjs | tee -a ../FINAL_SHIP_LOG.txt
+
+If output shows null price IDs for any plan/add-on and you accept creation, run with creation enabled:
+
+DRY_RUN=false node scripts/stripe_sync.mjs | tee -a ../FINAL_SHIP_LOG.txt
+
+Copy the returned price IDs for monthly/yearly/add-ons.
+
+
+---
+
+3) Vercel env: set or update price IDs
+
+Add or update the following Production env vars using Vercel CLI if available; otherwise print the exact vercel env add commands for the operator:
+
+STRIPE_PRICE_STARTER
+STRIPE_PRICE_STARTER_YEAR
+STRIPE_PRICE_PRO
+STRIPE_PRICE_PRO_YEAR
+STRIPE_PRICE_BUSINESS
+STRIPE_PRICE_BUSINESS_YEAR
+
+# Optional add-ons
+STRIPE_PRICE_ADDON_PRIORITY_SUPPORT
+STRIPE_PRICE_ADDON_SLA_99_9
+STRIPE_PRICE_ADDON_WHITE_LABEL
+
+NEXT_PUBLIC_API_URL = https://api.levqor.ai
+SITE_URL = https://levqor.ai
+FREE_TRIAL_DAYS = 7
+
+CLI example (only if VERCEL_TOKEN is available in env):
+
+# Example for one env – repeat for each
+vercel env add STRIPE_PRICE_STARTER production --token "$VERCEL_TOKEN"
+# Paste the ID when prompted, then hit Enter
+
+If CLI not available, generate a short .env.production.local preview with placeholders and show it to the user, but do not commit secrets.
+
+
+---
+
+4) Checkout API: ensure supports Starter/Pro/Business + trial + add-ons
+
+Update or create src/app/api/checkout/route.ts to:
+
+Accept POST { plan, term, addons?: string[] } and GET fallback.
+
+Map to static envs only (no dynamic process.env[key]).
+
+If FREE_TRIAL_DAYS > 0, pass subscription_data.trial_period_days.
+
+Return JSON {url}.
+
+On error, return JSON with a safe message and 400 code.
+
+
+Key mapping:
+
+const map = {
+  starter: { monthly: process.env.STRIPE_PRICE_STARTER,       yearly: process.env.STRIPE_PRICE_STARTER_YEAR },
+  pro:     { monthly: process.env.STRIPE_PRICE_PRO,           yearly: process.env.STRIPE_PRICE_PRO_YEAR },
+  business:{ monthly: process.env.STRIPE_PRICE_BUSINESS,      yearly: process.env.STRIPE_PRICE_BUSINESS_YEAR },
+};
+
+const addonMap = {
+  PRIORITY_SUPPORT: process.env.STRIPE_PRICE_ADDON_PRIORITY_SUPPORT,
+  SLA_99_9:         process.env.STRIPE_PRICE_ADDON_SLA_99_9,
+  WHITE_LABEL:      process.env.STRIPE_PRICE_ADDON_WHITE_LABEL,
+};
+
+Create Checkout Session with:
+
+mode: "subscription"
+
+automatic_tax: { enabled: true }
+
+subscription_data: { trial_period_days: Number(process.env.FREE_TRIAL_DAYS) || 0 }
+
+success_url: ${SITE_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}
+
+cancel_url:  ${SITE_URL}/pricing
+
+
+Do not leak keys in responses.
+
+
+---
+
+5) Pricing page: ensure toggle and Business tier with add-ons
+
+Page: src/app/pricing/page.tsx
+
+Show Free / Starter / Pro / Business with monthly/yearly toggle.
+
+“Start Free” for Free, “Start trial” for paid tiers.
+
+Each CTA calls /api/checkout?plan=…&term=… for GET fallback, and the UI should POST to /api/checkout when JS is active.
+
+Add “Coming soon” badges on connectors not available yet.
+
+
+
+---
+
+6) Git push and Vercel deploy with rate-limit guard
+
+Create deploy_safe.sh at repo root:
+
+#!/usr/bin/env bash
+set -euo pipefail
+cd ~/workspace/levqor-site
+
+# Stage only source changes; never stage secrets or build artefacts
+git restore --staged .env* node_modules .next dist .vercel 2>/dev/null || true
+git add src scripts || true
+git add package.json package-lock.json 2>/dev/null || true
+
+git commit -m "Pricing final: Business tier, trial support, add-ons, safe checkout" || echo "No changes to commit"
+
+# Try Vercel CLI first if token exists
+if [[ -n "${VERCEL_TOKEN:-}" ]]; then
+  echo "Triggering Vercel prod deploy..."
+  npx vercel --prod --force --token "$VERCEL_TOKEN" || echo "Vercel CLI failed, falling back to Git push"
+fi
+
+# Always push to trigger Git → Vercel deploy
+git push origin main
+
+echo "Waiting 180s for Vercel build..."
+sleep 180
+
+Run it:
+
+bash deploy_safe.sh | tee -a ../FINAL_SHIP_LOG.txt
+
+If Vercel daily limit hit, the script still pushed; deployment will occur when the window resets. No further action needed now.
+
+
+---
+
+7) Post-deploy verification
+
+Create verify_final.sh:
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP="https://levqor.ai"
+API="https://api.levqor.ai"
+
+echo "== Frontend =="
+curl -sI $APP        | head -n1
+curl -sI $APP/pricing| head -n1
+curl -sI $APP/signin | head -n1
+
+echo "== API Health =="
+curl -s $API/status
+echo
+curl -s $API/ops/uptime
+echo
+
+echo "== Checkout GET =="
+curl -s "$APP/api/checkout?plan=starter&term=monthly" | jq . || true
+curl -s "$APP/api/checkout?plan=pro&term=yearly" | jq . || true
+curl -s "$APP/api/checkout?plan=business&term=monthly" | jq . || true
+
+echo "== Checkout POST =="
+curl -s -X POST "$APP/api/checkout" -H 'content-type: application/json' --data '{"plan":"starter","term":"monthly"}' | jq . || true
+curl -s -X POST "$APP/api/checkout" -H 'content-type: application/json' --data '{"plan":"business","term":"yearly","addons":["PRIORITY_SUPPORT"]}' | jq . || true
+
+Run it:
+
+bash verify_final.sh | tee -a FINAL_SHIP_LOG.txt
+
+Successful signals:
+
+Home/ pricing: HTTP/2 200
+
+Health JSON present
+
+Checkout responses return JSON with "url" for paid plans and a helpful message for Free.
+
+
+
+---
+
+8) Vercel cleanup (non-destructive, safe)
+
+Only if VERCEL_TOKEN exists:
+
+# List deployments
+npx vercel ls --token "$VERCEL_TOKEN"
+
+# Optional: remove non-prod deployments older than 3 days (skip current prod)
+# The agent should parse and remove only clearly stale previews, never the active alias.
+
+If CLI lacks permission, print the dashboard link and the names to remove manually.
+
+
+---
+
+9) Rollback switch
+
+If checkout fails after deploy:
+
+# Quick alias rollback via CLI
+npx vercel rollback --token "$VERCEL_TOKEN" || echo "Open dashboard → Production → Rollback to previous deployment."
+
+
+---
+
+10) Final outputs
+
+Print a compact status block:
+
+Plans and detected Price IDs
+
+Trial days
+
+Vercel deployment URL in production
+
+Pass/fail of each verification probe
+
+
+Save full logs to FINAL_SHIP_LOG.txt.
+
+
+
+---
+
+ACCEPTANCE CRITERIA
+
+/pricing shows Free, Starter, Pro, Business with monthly/yearly toggle and clear CTAs.
+
+/api/checkout accepts POST and GET and returns Stripe Checkout URL for paid plans.
+
+7-day trial is applied for paid plans.
+
+Add-ons work for Business via POST body.
+
+Vercel envs contain all required price IDs.
+
+Verification script passes all checks.
+
+No secrets committed.
+
+Rollback path documented.
+
+
+
+---
+
+SAFETY
+
+DRY_RUN for Stripe creation defaults to true; operator must rerun with DRY_RUN=false to create.
+
+No deletion of existing Stripe products/prices.
+
+No deletion of current production deployment.
+
+Never echo secret values.
+
+
+
+---
+
+END OF PROMPT
