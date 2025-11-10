@@ -1,9 +1,19 @@
+Focus: this is an env–mapping issue, not Stripe. Your API is running but can’t see the price IDs at runtime. Fix by shipping a version that supports both env schemes and adds a safe debug.
+
+Do this exactly
+
+1) Replace checkout route with a dual-scheme, POST-first handler
+
+Create/overwrite levqor-site/src/app/api/checkout/route.ts:
+
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: "2025-10-29.clover" });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: "2024-10-28" });
 
+// Helper: read statically-known envs only (no dynamic indexing)
 function getPriceId(plan: "starter"|"pro"|"business", term: "monthly"|"yearly") {
+  // 4-var scheme
   const STARTER_M = process.env.STRIPE_PRICE_STARTER;
   const STARTER_Y = process.env.STRIPE_PRICE_STARTER_YEAR;
   const PRO_M     = process.env.STRIPE_PRICE_PRO;
@@ -11,9 +21,10 @@ function getPriceId(plan: "starter"|"pro"|"business", term: "monthly"|"yearly") 
   const BUS_M     = process.env.STRIPE_PRICE_BUSINESS;
   const BUS_Y     = process.env.STRIPE_PRICE_BUSINESS_YEAR;
 
+  // 2-var scheme (suffix _ID_)
   const STARTER_M_ID = process.env.STRIPE_PRICE_ID_STARTER;
   const PRO_M_ID     = process.env.STRIPE_PRICE_ID_PRO;
-  const BUS_M_ID     = process.env.STRIPE_PRICE_ID_BUSINESS;
+  const BUS_M_ID     = process.env.STRIPE_PRICE_ID_BUSINESS; // optional
 
   const map: Record<string, string | undefined> = {
     "starter-monthly": STARTER_M ?? STARTER_M_ID,
@@ -26,6 +37,7 @@ function getPriceId(plan: "starter"|"pro"|"business", term: "monthly"|"yearly") 
   return map[`${plan}-${term}`];
 }
 
+// POST is source of truth
 export async function POST(req: Request) {
   try {
     const { plan, term, addons } = await req.json();
@@ -69,9 +81,82 @@ export async function POST(req: Request) {
   }
 }
 
+// GET kept for backward compat -> proxies to POST
 export async function GET(req: Request) {
   const u = new URL(req.url);
   const plan = (u.searchParams.get("plan") ?? "").toLowerCase();
   const term = (u.searchParams.get("term") ?? "").toLowerCase();
   return POST(new Request(u.toString(), { method:"POST", body: JSON.stringify({ plan, term }) }));
 }
+
+2) Add a safe debug endpoint to see what the server sees
+
+Create levqor-site/src/app/api/checkout/_debug/route.ts:
+
+import { NextResponse } from "next/server";
+export function GET() {
+  return NextResponse.json({
+    sees: {
+      STRIPE_PRICE_STARTER: !!process.env.STRIPE_PRICE_STARTER,
+      STRIPE_PRICE_STARTER_YEAR: !!process.env.STRIPE_PRICE_STARTER_YEAR,
+      STRIPE_PRICE_PRO: !!process.env.STRIPE_PRICE_PRO,
+      STRIPE_PRICE_PRO_YEAR: !!process.env.STRIPE_PRICE_PRO_YEAR,
+      STRIPE_PRICE_BUSINESS: !!process.env.STRIPE_PRICE_BUSINESS,
+      STRIPE_PRICE_BUSINESS_YEAR: !!process.env.STRIPE_PRICE_BUSINESS_YEAR,
+      STRIPE_PRICE_ID_STARTER: !!process.env.STRIPE_PRICE_ID_STARTER,
+      STRIPE_PRICE_ID_PRO: !!process.env.STRIPE_PRICE_ID_PRO,
+      STRIPE_PRICE_ID_BUSINESS: !!process.env.STRIPE_PRICE_ID_BUSINESS,
+      SITE_URL: !!process.env.SITE_URL,
+      STRIPE_SECRET_KEY: !!process.env.STRIPE_SECRET_KEY,
+    }
+  });
+}
+
+3) Commit and push
+
+cd ~/workspace/levqor-site
+git add src/app/api/checkout/route.ts src/app/api/checkout/_debug/route.ts
+git commit -m "Checkout: dual env scheme + debug endpoint"
+git push origin main
+
+4) Verify envs really exist in Production and redeploy
+
+vercel env ls --token "$VERCEL_TOKEN" | grep -E "STRIPE_PRICE|STRIPE_SECRET_KEY|SITE_URL"
+
+# If any of these are missing, add real Stripe price IDs:
+#   STRIPE_PRICE_STARTER, STRIPE_PRICE_STARTER_YEAR,
+#   STRIPE_PRICE_PRO,     STRIPE_PRICE_PRO_YEAR,
+#   STRIPE_PRICE_BUSINESS,STRIPE_PRICE_BUSINESS_YEAR
+# Or alternatively:
+#   STRIPE_PRICE_ID_STARTER, STRIPE_PRICE_ID_PRO, STRIPE_PRICE_ID_BUSINESS
+
+vercel --prod --force --token "$VERCEL_TOKEN"
+
+5) Runtime checks
+
+# What the deployed server sees:
+curl -s https://levqor.ai/api/checkout/_debug
+
+# Source-of-truth POST:
+curl -s -X POST https://levqor.ai/api/checkout \
+  -H 'content-type: application/json' \
+  --data '{"plan":"starter","term":"monthly"}'
+
+Expected
+
+_debug returns booleans; at least one price var per plan/term must be true.
+
+POST returns { "ok": true, "url": "https://checkout.stripe.com/..." }.
+
+
+
+---
+
+If _debug shows false for a price you believe you set, the variable is either:
+
+not in Production scope, or
+
+you didn’t redeploy after setting it.
+
+
+Fix the scope, redeploy, retest.
