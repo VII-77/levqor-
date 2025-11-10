@@ -1,0 +1,153 @@
+Understood. Here’s the complete, unified Replit AI Agent prompt that includes everything:
+✅ Full competitive pricing implementation
+✅ All Next.js + API updates
+✅ Environment variable verification and creation on Vercel
+✅ Safe cleanup of old prices, variables, and deployments
+✅ Automated deployment and verification
+
+
+---
+
+🧠 FULL AI AGENT PROMPT (copy–paste into Replit)
+
+You are operating inside the Levqor monorepo:
+- Frontend: Next.js app at levqor-site/
+- Backend: Flask (run.py) — do not modify
+- Deployment: Vercel (levqor.ai) with connected GitHub
+
+Primary goal:
+Finalize and clean the entire pricing system (Stripe + Vercel + UX). 
+It must be production-ready, competitive, and fully automated.
+
+──────────────────────────────
+🧹 PHASE 1 — CLEANUP (Vercel + Stripe)
+──────────────────────────────
+1. Connect to the linked Vercel project for levqor.ai using the system token `$VERCEL_TOKEN`.
+2. List all **Vercel Environment Variables** whose names start with `STRIPE_`.
+3. Delete any variables that are duplicates, unused, or mismatched with the final schema below.
+4. Recreate all variables exactly as follows (Type: Encrypted, Environment: Production + Preview):
+   - STRIPE_SECRET_KEY
+   - STRIPE_WEBHOOK_SECRET
+   - SITE_URL = https://levqor.ai
+   - STRIPE_PRICE_STARTER
+   - STRIPE_PRICE_STARTER_YEAR
+   - STRIPE_PRICE_PRO
+   - STRIPE_PRICE_PRO_YEAR
+   - STRIPE_PRICE_BUSINESS
+   - STRIPE_PRICE_BUSINESS_YEAR
+   - STRIPE_ADDON_RUNS_25K
+   - STRIPE_ADDON_AI_10K
+   - STRIPE_ADDON_SLA_PRO
+5. Verify successful creation of all 12 variables.
+
+6. On **Stripe**:
+   - Delete all old Products and Prices that are not used by current env names.
+   - Create new products:
+       levqor_starter / levqor_starter_year
+       levqor_pro / levqor_pro_year (trial_period_days=7)
+       levqor_business / levqor_business_year (trial_period_days=7)
+     and add-ons:
+       addon_runs_25k (£29 one-time)
+       addon_ai_10k (£9 one-time)
+       addon_sla_pro (£39 recurring)
+   - Output the new price IDs to the console for verification.
+
+──────────────────────────────
+🎨 PHASE 2 — FRONTEND UX + API
+──────────────────────────────
+1. Edit levqor-site/src/app/pricing/page.tsx:
+   - Add Monthly/Yearly toggle with “Save 2 months” badge.
+   - Render 4 pricing cards: Free, Starter, Pro, Business.
+   - Add feature matrix:
+     Workflows, Runs/mo, Speed, Users, Connectors, AI credits, Support.
+   - Add “Coming soon” connectors section:
+     Salesforce, HubSpot, Shopify, Xero, QuickBooks, Zendesk, MS Teams
+     Each with “Coming soon” tag and a Notify-me modal (email input).
+   - Add trust line: “Cancel anytime • 7-day trial on Pro & Business • GDPR & encryption at rest”.
+   - Buttons: “Start for Free” (Free), “Upgrade” (Starter), “Start 7-Day Trial” (Pro/Business).
+   - Use existing Tailwind styling system.
+
+2. Edit levqor-site/src/app/api/checkout/route.ts:
+   - Keep GET fallback (?plan=&term=)
+   - Add POST with JSON body {plan:"starter|pro|business", term:"monthly|yearly", addons?:[]}
+   - Use static env mapping (no dynamic keys):
+       const MAP = {
+         starter: { monthly: process.env.STRIPE_PRICE_STARTER, yearly: process.env.STRIPE_PRICE_STARTER_YEAR },
+         pro:     { monthly: process.env.STRIPE_PRICE_PRO,     yearly: process.env.STRIPE_PRICE_PRO_YEAR },
+         business:{ monthly: process.env.STRIPE_PRICE_BUSINESS,yearly: process.env.STRIPE_PRICE_BUSINESS_YEAR },
+       };
+   - Addons map:
+       const ADDONS = {
+         runs_25k: process.env.STRIPE_ADDON_RUNS_25K,
+         ai_10k:   process.env.STRIPE_ADDON_AI_10K,
+         sla_pro:  process.env.STRIPE_ADDON_SLA_PRO
+       };
+   - If plan = pro or business → include trial_period_days = 7.
+   - Return JSON {url} of the Stripe Checkout Session.
+
+3. Create levqor-site/src/app/api/notify-coming-soon/route.ts:
+   - POST {email, connector}
+   - Write to /tmp/notify.json or, if Resend API key exists, send confirmation email.
+
+──────────────────────────────
+🧪 PHASE 3 — TESTS + DEPLOYMENT
+──────────────────────────────
+1. Create levqor-site/scripts/test_checkout.sh:
+
+#!/bin/bash curl -s -X POST https://levqor.ai/api/checkout -H "content-type: application/json" --data '{"plan":"starter","term":"monthly"}' | grep "checkout.stripe.com" curl -s -X POST https://levqor.ai/api/checkout -H "content-type: application/json" --data '{"plan":"pro","term":"yearly"}' | grep "checkout.stripe.com" curl -s -X POST https://levqor.ai/api/checkout -H "content-type: application/json" --data '{"plan":"business","term":"monthly"}' | grep "checkout.stripe.com" curl -s -X POST https://levqor.ai/api/checkout -H "content-type: application/json" --data '{"plan":"pro","term":"monthly","addons":["runs_25k","ai_10k"]}' | grep "checkout.stripe.com"
+
+2. Create levqor-site/scripts/deploy.sh:
+
+#!/bin/bash git add src/app/pricing src/app/api scripts/ git commit -m "v7.0: Competitive pricing, trials, add-ons, coming-soon notify, Vercel cleanup" git push origin main echo "Waiting 3 minutes for Vercel auto-deploy..." sleep 180 ./scripts/test_checkout.sh
+
+3. Make both scripts executable: chmod +x scripts/*.sh
+
+4. Verify Vercel build succeeded (automated deploy triggers on push).
+
+──────────────────────────────
+💡 PHASE 4 — FINAL CHECKS
+──────────────────────────────
+1. Run ./scripts/test_checkout.sh — all four POSTs should return valid Stripe Checkout URLs.
+2. Open https://levqor.ai/pricing → toggle Monthly/Yearly, ensure Coming Soon and trials visible.
+3. Confirm the deployed pricing table matches Free, Starter, Pro, Business.
+4. Confirm that the notify endpoint responds {ok:true}.
+5. Document all results in /PHASE_7_PRICING_FINALIZED.md
+
+Stop when:
+- All code compiles
+- All Stripe env vars verified on Vercel
+- All endpoints return 200 or Stripe URLs
+- No dynamic env references
+- New pricing page visible on production.
+
+──────────────────────────────
+🧾 EXPECTED OUTPUT SUMMARY
+──────────────────────────────
+✔ Deleted old Vercel variables and added correct 12.
+✔ Created new Stripe products/prices.
+✔ Updated pricing page with trials and Coming Soon.
+✔ Added new notify API.
+✔ Added deployment + test scripts.
+✔ Git commit + push ready.
+✔ Deployment verified on levqor.ai
+──────────────────────────────
+
+
+---
+
+✅ What this prompt achieves
+
+Cleans up Vercel environment automatically and safely.
+
+Resets Stripe pricing products to match your 4-tier plan + add-ons.
+
+Updates code for trials, add-ons, and “Coming soon” sections.
+
+Commits and deploys automatically.
+
+Tests all endpoints.
+
+Produces one markdown report file summarizing results.
+
+
+Once this is run, your entire pricing system will be rebuilt, verified, and deployed automatically — no manual Git or Vercel clicking needed except confirming permissions.
