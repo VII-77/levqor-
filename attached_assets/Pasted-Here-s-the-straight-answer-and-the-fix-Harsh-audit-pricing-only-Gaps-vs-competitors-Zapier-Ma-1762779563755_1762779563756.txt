@@ -1,0 +1,279 @@
+Here’s the straight answer and the fix.
+
+Harsh audit (pricing only)
+
+Gaps vs. competitors (Zapier/Make/n8n Cloud):
+
+You don’t show a clear feature matrix per plan. Missing limits for workflows, runs, speed, users, support, SSO, audit logs.
+
+No monthly/yearly toggle UX with savings badge.
+
+Free try-before-buy is unclear. You need either a Free tier or a 7-day trial. Right now it’s neither obvious nor consistent.
+
+Connectors status is not disclosed. Users must see “Available” vs “Coming soon” with ETAs.
+
+No add-ons for power users (extra runs, AI credits, priority SLA).
+
+Stripe products/prices are inconsistent across code and Vercel. That created 500s and 405s.
+
+No legal/assurance on the pricing page (refund, cancel anytime, data export). Trust matters.
+
+
+Minimum to win:
+
+4 plans with crisp limits + yearly discount.
+
+7-day trial on Pro and Business.
+
+Visible “Coming soon” with opt-in notify.
+
+Add-ons for scaling without a confusing enterprise call.
+
+
+Finalized pricing spec (competitive, simple, “wow”)
+
+Plans & allowances
+
+Plan	Monthly	Yearly	Workflows	Runs / mo	Speed	Users	Connectors	AI credits	Support
+
+Free	£0	—	2	200	Standard	1	Core only	200	Community
+Starter	£19	£190	10	5,000	Fast	1	Core + Beta	2,500	Email
+Pro	£49	£490	50	25,000	Faster	3	All (incl. Beta)	10,000	Priority
+Business	£149	£1,490	200	100,000	Fastest	10	All + SSO	40,000	4-hr SLA
+
+
+Trials
+
+Pro, Business: 7-day free trial (no charge, card required, cancel anytime).
+
+Free: no trial, just use.
+
+
+Add-ons
+
+Extra Runs Pack: +25,000 runs / £29
+
+AI Credits Pack: +10,000 tokens / £9
+
+Priority SLA for Pro: +£39 (business hours, 2-hr target)
+
+
+Connectors (show on pricing page)
+
+Available now: Gmail, Google Sheets, Slack, Discord, Notion, Webhooks, Stripe (status: Live)
+
+Coming soon: Salesforce, HubSpot, Shopify, Xero, QuickBooks, Zendesk, MS Teams
+
+Show “Coming soon” pill + “Notify me” capture.
+
+ETA buckets: “Q4”, “Q1”.
+
+
+
+Trust
+
+“Cancel anytime, prorated.” “7-day trial on Pro/Business.” “GDPR + encryption at rest.” “SLA on Business.”
+
+
+Stripe model (clean, reliable)
+
+Products (6)
+
+levqor_starter (monthly), levqor_starter_year
+
+levqor_pro (monthly, trial_period_days=7), levqor_pro_year (trial)
+
+levqor_business (monthly, trial), levqor_business_year (trial)
+
+
+Add-on Prices (3)
+
+addon_runs_25k (one-time £29)
+
+addon_ai_10k (one-time £9)
+
+addon_sla_pro (recurring £39)
+
+
+Vercel → environment names (static, Next.js-safe)
+
+STRIPE_PRICE_STARTER
+STRIPE_PRICE_STARTER_YEAR
+STRIPE_PRICE_PRO
+STRIPE_PRICE_PRO_YEAR
+STRIPE_PRICE_BUSINESS
+STRIPE_PRICE_BUSINESS_YEAR
+STRIPE_ADDON_RUNS_25K
+STRIPE_ADDON_AI_10K
+STRIPE_ADDON_SLA_PRO
+
+UX changes
+
+Pricing page:
+
+Monthly/Yearly toggle with “Save 2 months” badge.
+
+Feature matrix with green ticks and clear caps.
+
+“Coming soon” chips on connectors with Notify modals.
+
+“What happens after trial?” mini-FAQ.
+
+
+/api/checkout:
+
+Accept POST {plan, term, addons?[]} and GET fallback.
+
+Validate plan/term; map to static env; attach trial on Pro/Business.
+
+Return {url} then redirect client.
+
+
+
+Single “AI Agent” prompt (Replit) to implement everything
+
+Copy-paste the block below into your Replit AI Agent. It is self-contained and avoids the mistakes we already hit (dynamic env lookups, wrong env names, missing POST, no trial). It also keeps your current code style.
+
+You are operating in the Levqor monorepo with:
+- Backend: Flask at /run.py
+- Frontend: Next.js app at levqor-site/
+
+Objective:
+1) Finalize pricing UX and API exactly as specified.
+2) Normalize Stripe env names and wire the 6 plan prices + 3 add-ons.
+3) Add “Coming soon” connectors UI and notify capture.
+4) Keep everything static-env safe for Next.js.
+
+Do not change secrets. Do not invent price IDs. Only reference env names below.
+
+----- IMPLEMENTATION CHECKLIST -----
+
+A) Frontend – Pricing page
+1. Edit file: levqor-site/src/app/pricing/page.tsx
+   - Add Monthly/Yearly toggle with savings badge.
+   - Render 4 cards: Free, Starter, Pro, Business using the allowances below.
+   - Add feature matrix under the cards.
+   - “Start 7-day trial” buttons for Pro & Business → call /api/checkout with {plan,term}.
+   - Show “Coming soon” connectors with a “Notify me” button (opens a simple email capture modal; POST to /api/notify-coming-soon with {email, connector}).
+   - Add trust strip: “Cancel anytime”, “7-day trial on Pro & Business”, “GDPR, encryption at rest”.
+
+Allowances to render:
+- Free: 2 workflows, 200 runs/mo, 1 user, Core connectors only, 200 AI credits
+- Starter: 10 workflows, 5,000 runs/mo, 1 user, Core+Beta, 2,500 credits, Email support
+- Pro: 50 workflows, 25,000 runs/mo, 3 users, All connectors, 10,000 credits, Priority support, 7-day trial
+- Business: 200 workflows, 100,000 runs/mo, 10 users, All+SSO, 40,000 credits, 4-hr SLA, 7-day trial
+
+Connectors:
+- Available: Gmail, Google Sheets, Slack, Discord, Notion, Webhooks, Stripe
+- Coming soon: Salesforce, HubSpot, Shopify, Xero, QuickBooks, Zendesk, MS Teams
+
+2. If not present, add a small modal component for Notify (inline in this file is fine). POST to /api/notify-coming-soon (create in step C).
+
+B) Frontend – Checkout API (Next.js)
+1. Edit file: levqor-site/src/app/api/checkout/route.ts
+   - Keep GET support for ?plan=&term=
+   - Add POST support with JSON body {plan:"starter|pro|business", term:"monthly|yearly", addons?: string[]}
+   - Map to static envs (no dynamic process.env[key]).
+   - Use this exact mapping (static references):
+       const MAP = {
+         starter: { monthly: process.env.STRIPE_PRICE_STARTER, yearly: process.env.STRIPE_PRICE_STARTER_YEAR },
+         pro:     { monthly: process.env.STRIPE_PRICE_PRO,     yearly: process.env.STRIPE_PRICE_PRO_YEAR },
+         business:{ monthly: process.env.STRIPE_PRICE_BUSINESS,yearly: process.env.STRIPE_PRICE_BUSINESS_YEAR },
+       };
+     Validate all exist; return 400 if missing.
+
+   - Trials: if plan in ["pro","business"], pass trial_period_days: 7.
+   - Build line_items with the chosen plan price (quantity:1). If addons present:
+       const ADDONS = {
+         runs_25k: process.env.STRIPE_ADDON_RUNS_25K,
+         ai_10k:   process.env.STRIPE_ADDON_AI_10K,
+         sla_pro:  process.env.STRIPE_ADDON_SLA_PRO
+       };
+     Push addon prices that exist.
+   - Create a Checkout Session (mode: 'subscription'). Success/cancel URLs: `${process.env.SITE_URL}/success` & `/pricing`.
+   - Return JSON `{url}` and DO NOT redirect server-side.
+
+C) Frontend – Simple endpoint for “Notify me”
+1. Create file: levqor-site/src/app/api/notify-coming-soon/route.ts
+   - POST {email, connector}. Append to a local JSON file in /tmp (Vercel write) and return {ok:true}. If Resend env exists, optionally send a confirmation email.
+
+D) Pricing UI polish
+- Add Yearly toggle that visually updates prices (£19/£190, £49/£490, £149/£1490).
+- Add badges: “Most popular” on Pro, “Best value” on Business.
+- Add FAQ at bottom: trials, refunds, cancel, invoices.
+
+E) No dynamic env usage
+- Ensure every env var is statically referenced like process.env.STRIPE_PRICE_PRO (not computed strings).
+
+F) Tests (create script levqor-site/scripts/test_checkout.sh)
+- After deploy, run:
+  curl -s -X POST https://levqor.ai/api/checkout -H "content-type: application/json" --data '{"plan":"starter","term":"monthly"}' | jq -r .url | grep "checkout.stripe.com"
+  curl -s -X POST https://levqor.ai/api/checkout -H "content-type: application/json" --data '{"plan":"pro","term":"yearly"}' | jq -r .url | grep "checkout.stripe.com"
+- Addons test:
+  curl -s -X POST https://levqor.ai/api/checkout -H "content-type: application/json" --data '{"plan":"pro","term":"monthly","addons":["runs_25k","ai_10k"]}' | jq -r .url | grep "checkout.stripe.com"
+
+G) Do not touch backend Flask code.
+
+H) Create a short deployment helper (levqor-site/scripts/deploy.sh):
+- git add the changed files, commit “Pricing UX + trials + add-ons + coming soon notify”, push origin main.
+- Print next steps.
+
+Deliverables:
+- Updated levqor-site/src/app/pricing/page.tsx
+- Updated levqor-site/src/app/api/checkout/route.ts
+- New levqor-site/src/app/api/notify-coming-soon/route.ts
+- New levqor-site/scripts/test_checkout.sh (chmod +x)
+- New levqor-site/scripts/deploy.sh (chmod +x)
+
+Stop when all files are created/edited without syntax errors and show a summary of changed files and how to run deploy + tests.
+
+What you do after the agent finishes
+
+1. In your Shell:
+
+
+
+cd levqor-site
+./scripts/deploy.sh
+
+2. Wait for Vercel to finish. Then verify:
+
+
+
+./scripts/test_checkout.sh
+
+3. Click Pricing on levqor.ai, toggle Monthly/Yearly, try Pro with trial. The POST should return a Stripe Checkout URL.
+
+
+
+Env checklist (Vercel → Project → Settings → Environment Variables)
+
+Already required:
+
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+SITE_URL = https://levqor.ai
+STRIPE_PRICE_STARTER
+STRIPE_PRICE_STARTER_YEAR
+STRIPE_PRICE_PRO
+STRIPE_PRICE_PRO_YEAR
+STRIPE_PRICE_BUSINESS
+STRIPE_PRICE_BUSINESS_YEAR
+STRIPE_ADDON_RUNS_25K
+STRIPE_ADDON_AI_10K
+STRIPE_ADDON_SLA_PRO
+
+Success criteria
+
+Pricing page shows four plans, toggle works, “Coming soon” chips visible with notify modal.
+
+Pro/Business POST → Stripe Checkout with 7-day trial.
+
+All four plan + term combos return a Checkout URL.
+
+Add-ons POST returns a URL including add-on line items.
+
+No dynamic env usage. No 405/500.
+
+
+If you want, I’ll also draft the exact copy for the pricing page sections next.
