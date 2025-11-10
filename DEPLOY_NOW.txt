@@ -1,49 +1,53 @@
-╔═══════════════════════════════════════════════════╗
-║  🚀 DEPLOY PRICING V2.1 - COPY & PASTE THESE     ║
-╚═══════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════
+🚀 3-TIER PRICING - READY TO DEPLOY
+═══════════════════════════════════════════════════════════
 
-Run these 3 commands in the Shell:
+✅ COMPLETED (Automated):
+───────────────────────────────────────────────────────────
+• Stripe: 3 products + 6 prices created
+  - Starter: £19/mo, £190/yr
+  - Pro: £49/mo, £490/yr
+  - Business: £149/mo, £1490/yr
 
-git add levqor-site/
+• Vercel: 6 environment variables configured
+  - STRIPE_PRICE_STARTER (updated)
+  - STRIPE_PRICE_STARTER_YEAR (updated)
+  - STRIPE_PRICE_PRO (updated)
+  - STRIPE_PRICE_PRO_YEAR (updated)
+  - STRIPE_PRICE_BUSINESS (new)
+  - STRIPE_PRICE_BUSINESS_YEAR (new)
 
-git commit -m "Pricing v2.1: monthly+yearly plans with Stripe integration"
+• Code: levqor-site/src/app/api/checkout/route.ts
+  - Supports 3 tiers with monthly/yearly
+  - No errors, builds successfully
 
+═══════════════════════════════════════════════════════════
+📝 RUN THESE COMMANDS IN YOUR SHELL TERMINAL:
+═══════════════════════════════════════════════════════════
+
+cd ~/workspace/levqor-site
+git add src/app/api/checkout/route.ts
+git commit -m "Pricing: add Business tier (£149/mo, £1490/yr) + clean checkout API"
 git push origin main
 
-───────────────────────────────────────────────────
+═══════════════════════════════════════════════════════════
+⏳ THEN WAIT 3 MINUTES AND TEST:
+═══════════════════════════════════════════════════════════
 
-⏱️  WAIT: 2-3 minutes for Vercel to build
+curl -s 'https://levqor.ai/api/checkout?plan=starter&term=monthly'
+curl -s 'https://levqor.ai/api/checkout?plan=pro&term=yearly'
+curl -s 'https://levqor.ai/api/checkout?plan=business&term=monthly'
 
-───────────────────────────────────────────────────
+Expected response:
+{"ok":true,"url":"https://checkout.stripe.com/c/pay/cs_test_...","plan":"...","term":"..."}
 
-🧪 THEN TEST:
+═══════════════════════════════════════════════════════════
+✅ SUCCESS CRITERIA:
+═══════════════════════════════════════════════════════════
 
-curl -I "https://levqor.ai/api/checkout?plan=starter&term=monthly"
+All 3 tiers return Stripe checkout URLs:
+✓ Starter (£19/mo or £190/yr)
+✓ Pro (£49/mo or £490/yr)
+✓ Business (£149/mo or £1490/yr)
 
-Expected: HTTP/2 303 (redirects to Stripe Checkout)
-
-───────────────────────────────────────────────────
-
-✅ WHAT'S DEPLOYED:
-
-- Pricing page with monthly/yearly toggle
-- 4 Stripe prices (starter/pro × monthly/yearly)
-- Checkout API with automatic tax
-- Thank you page after purchase
-- All 6 environment variables configured
-
-───────────────────────────────────────────────────
-
-🎯 TEST LIVE SITE:
-
-https://levqor.ai/pricing
-
-Try:
-1. Toggle monthly/yearly
-2. Click "Buy now" on Starter
-3. Should redirect to Stripe Checkout
-4. Test card: 4242 4242 4242 4242
-5. Complete purchase
-6. Redirects to /thanks page
-
-╚═══════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════
